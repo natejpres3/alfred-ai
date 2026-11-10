@@ -1,0 +1,483 @@
+lesson_key: b01.m03.l05
+title: Implementing gradient descent from scratch
+subtitle: Linear regression, vectorized gradients, and checking your own math
+summary: >-
+  Put the previous four lessons together: represent data as a matrix, define mean squared error, derive its
+  gradient with the chain rule in vectorized form, verify it numerically, and train with gradient descent.
+  Feature scaling turns out to be a learning-rate problem in disguise.
+why_it_matters: >-
+  This exact loop — forward pass, loss, gradient, update, monitor — is how every neural network is trained. The
+  habits you build here (shape checking, gradient checking, reading loss curves) are the ones that save days of
+  debugging later.
+explanation_strategy: build-it end-to-end with shape-driven derivation
+estimated_minutes: 60
+prerequisites: [opt.gradient_descent, la.matmul, calc.chain_rule]
+objectives:
+  - {id: b01.m03.l05.o1, concept_key: opt.gd_implementation, critical: true, bloom: apply, statement: "Derive the mean-squared-error gradient for linear regression in vectorized form"}
+  - {id: b01.m03.l05.o2, concept_key: opt.gd_implementation, critical: true, bloom: create, statement: "Implement batch gradient descent in NumPy and verify it with a numerical gradient check"}
+  - {id: b01.m03.l05.o3, concept_key: opt.gd_implementation, critical: false, bloom: analyze, statement: "Diagnose training problems from a loss curve"}
+connections:
+  - {concept_key: opt.learning_rate, direction: builds_on, note: "Unscaled features create curvature imbalance, which limits the learning rate."}
+  - {concept_key: stats.mle, direction: leads_to, note: "Minimizing MSE is maximum likelihood under Gaussian noise."}
+  - {concept_key: opt.sgd, direction: leads_to, note: "Replace the full-batch gradient with minibatch estimates."}
+resources:
+  - id: r-cs231n-gradcheck
+    kind: course
+    title: "CS231n: Neural Networks Part 3 — gradient checks and learning (course notes)"
+    url: https://cs231n.github.io/neural-networks-3/
+    publisher: Stanford University
+    details: "Section: Gradient checks"
+    why: Practical advice on relative error and pitfalls in gradient checking.
+    required: false
+  - id: r-mml-9
+    kind: book
+    title: Mathematics for Machine Learning
+    url: https://mml-book.github.io/
+    authors: [Marc Peter Deisenroth, A. Aldo Faisal, Cheng Soon Ong]
+    publisher: Cambridge University Press
+    details: "Ch. 9.1–9.2 (linear regression, parameter estimation)"
+    why: The probabilistic view of the same problem — preview of Block 1 Module 8.
+    required: false
+  - id: r-numpy-broadcast
+    kind: docs
+    title: "NumPy: Broadcasting"
+    url: https://numpy.org/doc/stable/user/basics.broadcasting.html
+    publisher: NumPy
+    why: How X @ w + b works for a whole dataset at once.
+    required: false
+sections:
+  - id: s1
+    kind: retrieval
+    title: Warm-up
+    estimated_minutes: 3
+    blocks:
+      - {type: question, question_id: w1}
+      - {type: question, question_id: w2}
+  - id: s2
+    kind: concept
+    title: The problem and the plan
+    estimated_minutes: 7
+    blocks:
+      - type: markdown
+        text: |
+          Given $n$ examples with $d$ features each, stored as rows of $X\in\mathbb{R}^{n\times d}$, and targets
+          $\mathbf{y}\in\mathbb{R}^n$, find weights $\mathbf{w}\in\mathbb{R}^d$ and bias $b$ so that
+          $\hat{\mathbf{y}}=X\mathbf{w}+b\approx\mathbf{y}$.
+
+          Linear regression has a closed-form solution, which is exactly why it's the right first problem: you can
+          check that gradient descent gets the right answer. Then you'll swap in models without closed forms (Block 5)
+          and keep the same loop:
+
+          1. **Forward:** $\hat{\mathbf{y}}=X\mathbf{w}+b$
+          2. **Loss:** $L=\frac1n\|\hat{\mathbf{y}}-\mathbf{y}\|^2$
+          3. **Backward:** $\nabla_\mathbf{w}L$, $\partial L/\partial b$
+          4. **Update:** $\mathbf{w}\leftarrow\mathbf{w}-\eta\nabla_\mathbf{w}L$, $b\leftarrow b-\eta\,\partial L/\partial b$
+          5. **Monitor:** record $L$; stop when it stops improving.
+      - type: callout
+        variant: history
+        title: Least squares, 1805
+        text: |
+          Legendre published the method of least squares in 1805 to fit comet orbits; Gauss claimed he had used it
+          since 1795 and in 1809 justified it probabilistically via normally distributed errors — the same
+          connection you'll derive as maximum likelihood in Module 8.
+  - id: s3
+    kind: math
+    title: Deriving the vectorized gradient
+    estimated_minutes: 14
+    blocks:
+      - type: markdown
+        text: |
+          Let the residual be $\mathbf{r}=X\mathbf{w}+b-\mathbf{y}$, so $L=\frac1n\sum_{i=1}^n r_i^2$.
+          By the chain rule, with $r_i=\sum_j X_{ij}w_j+b-y_i$:
+      - type: equation
+        latex: "\\frac{\\partial L}{\\partial w_j}=\\frac1n\\sum_{i=1}^{n}2r_i\\,\\frac{\\partial r_i}{\\partial w_j}=\\frac2n\\sum_{i=1}^n r_i X_{ij}"
+      - type: markdown
+        text: |
+          The sum $\sum_i X_{ij} r_i$ is the dot product of column $j$ of $X$ with $\mathbf{r}$ — i.e. entry $j$ of
+          $X^\top\mathbf{r}$. Stacking all $j$:
+      - type: equation
+        latex: "\\nabla_{\\mathbf{w}}L=\\frac{2}{n}X^{\\top}\\mathbf{r},\\qquad \\frac{\\partial L}{\\partial b}=\\frac{2}{n}\\sum_{i=1}^{n}r_i"
+      - type: markdown
+        text: |
+          **Check the shapes** (always): $X^\top$ is $d\times n$, $\mathbf{r}$ is $n$, so $X^\top\mathbf{r}$ is $d$ —
+          the same shape as $\mathbf{w}$, as every gradient must be.
+
+          **Worked example.** $X=\begin{bmatrix}1\\2\end{bmatrix}$, $\mathbf{y}=(2,4)$, $w=0,b=0$:
+          $\mathbf{r}=(-2,-4)$, $\nabla_w L=\frac22(1\cdot(-2)+2\cdot(-4))=-10$, $\partial L/\partial b=-6$.
+          Negative gradients: increase $w$ and $b$. ✓
+
+          ### Gradient checking
+
+          Analytic gradients are easy to get subtly wrong (a missing factor of 2, a transpose, a mean vs. a sum).
+          Compare against central differences at a random point, coordinate by coordinate, using **relative error**
+          $\frac{|g_a-g_n|}{\max(|g_a|,|g_n|,10^{-12})}$. In float64, below $10^{-6}$ is a pass; around $10^{-2}$ or
+          higher means a bug. Relative (not absolute) error is used because gradient magnitudes vary wildly.
+
+          ### Feature scaling is a learning-rate problem
+
+          The MSE's curvature in direction $\mathbf{v}$ is governed by $\frac2n\|X\mathbf{v}\|^2$. If one feature is
+          in square metres (~100) and another in bedrooms (~3), curvature along the first is ~1000× larger. From
+          Lesson 4, $\eta$ must be below $2/(\text{largest curvature})$, so progress along the low-curvature feature
+          crawls. **Standardizing** each feature (subtract its mean, divide by its standard deviation) equalizes the
+          curvatures and lets one learning rate work for all directions.
+      - type: code
+        language: python
+        runnable: true
+        caption: The whole loop in a few lines (vectorized NumPy).
+        code: |
+          import numpy as np
+
+          rng = np.random.default_rng(0)
+          X = rng.normal(size=(200, 3))
+          true_w, true_b = np.array([2.0, -1.0, 0.5]), 0.3
+          y = X @ true_w + true_b + 0.01 * rng.normal(size=200)
+
+          w, b, lr = np.zeros(3), 0.0, 0.1
+          for step in range(500):
+              r = X @ w + b - y                 # residuals, shape (n,)
+              grad_w = 2 / len(y) * X.T @ r     # shape (d,)
+              grad_b = 2 / len(y) * r.sum()
+              w, b = w - lr * grad_w, b - lr * grad_b
+          print(np.round(w, 2), round(b, 2))     # ≈ [ 2. -1.  0.5] 0.3
+  - id: s4
+    kind: demo
+    title: Why scaling matters, visually
+    estimated_minutes: 7
+    blocks:
+      - type: interactive
+        widget: gradient_descent_2d
+        params: [{name: a, value: 1}, {name: b, value: 30}, {name: lr, value: 0.06}, {name: x0, value: -4}, {name: y0, value: 1.5}]
+        caption: An MSE loss over two weights when one feature has ~5.5× the scale of the other (curvature ratio 30).
+        instructions: |
+          1. Find the largest learning rate that doesn't diverge. How many steps does it take to get close along x?
+          2. Now set b = 1 (standardized features). How large can the learning rate be now, and how fast is convergence?
+      - type: markdown
+        text: |
+          **Reading loss curves:**
+
+          | Curve | Likely cause |
+          |---|---|
+          | Decreases smoothly then flattens | Healthy; converged (or at the noise floor) |
+          | Decreases very slowly in a straight-ish line | Learning rate too small, or unscaled features |
+          | Bounces up and down but trends down | Learning rate near the stability limit |
+          | Explodes / becomes `nan` | Learning rate too large (or a gradient bug) |
+          | Flat from step 0 | Gradient is zero/wrong — e.g. update not applied, sign error, detached parameters |
+  - id: s5
+    kind: recall
+    title: Active recall
+    estimated_minutes: 12
+    blocks:
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+  - id: s6
+    kind: coding
+    title: Implement and verify
+    estimated_minutes: 14
+    blocks:
+      - type: markdown
+        text: |
+          Implement the loss/gradient, a gradient checker, and a training loop in NumPy. Closed-form solvers
+          (`np.linalg.lstsq`, `solve`, `inv`, `pinv`) and ML libraries are not allowed — the point is the loop.
+          This also prepares you for the module project.
+      - {type: question, question_id: c1}
+  - id: s7
+    kind: summary
+    title: Summary
+    estimated_minutes: 3
+    blocks:
+      - type: markdown
+        text: |
+          - MSE gradient: $\nabla_\mathbf{w}L=\frac2nX^\top\mathbf{r}$, $\partial_bL=\frac2n\sum r_i$. Check shapes every time.
+          - Verify analytic gradients with central differences and relative error.
+          - Feature scale controls curvature, and curvature limits the learning rate: standardize features.
+          - Loss curves are your main diagnostic instrument.
+
+          **Next:** the Foundations Checkpoint and the module project — a complete, tested linear-regression trainer.
+questions:
+  - id: w1
+    type: numeric
+    category: recall
+    required: false
+    prompt: "One gradient-descent step on $L(w)=(w-3)^2$ from $w=1$ with $\\eta=0.25$. New $w$?"
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      numeric: {value: 2, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "1 − 0.25·2·(−2) = 2."
+  - id: w2
+    type: mcq
+    category: recall
+    required: false
+    prompt: "$X$ is $n\\times d$ and $\\mathbf{w}$ has length $d$. The shape of $X\\mathbf{w}$ is:"
+    objective_ids: [b01.m03.l05.o1]
+    options:
+      - {id: a, text: "(n,)"}
+      - {id: b, text: "(d,)"}
+      - {id: c, text: "(n, d)"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "One prediction per example."
+  - id: q1
+    type: derivation
+    category: math
+    critical: true
+    points: 5
+    prompt: |
+      For $L(\mathbf{w},b)=\frac1n\|X\mathbf{w}+b-\mathbf{y}\|^2$, derive $\nabla_{\mathbf{w}}L$ in vectorized form.
+      Start from the per-coordinate partial derivative, justify each step, and check the shape of your result.
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Defines residual r = Xw + b − y and writes L = (1/n) Σ r_i²"}
+          - {id: c2, points: 2, required_for_mastery: true, description: "Uses the chain rule to get ∂L/∂w_j = (2/n) Σ_i r_i X_ij"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Recognizes the sum as (X^T r)_j, giving ∇_w L = (2/n) X^T r"}
+          - {id: c4, points: 1, required_for_mastery: false, description: "Checks shapes: X^T is d×n, r is n, result is d like w"}
+        reference_answer: "r = Xw + b − y, L = (1/n)Σ r_i². ∂L/∂w_j = (1/n)Σ 2 r_i ∂r_i/∂w_j = (2/n)Σ r_i X_ij = (2/n)(X^T r)_j. So ∇_w L = (2/n) X^T r, shape (d×n)(n) = d, matching w."
+        common_misconceptions: ["∇ = (2/n) X r (missing transpose)", "Dropping the factor 2 or the 1/n"]
+      explanation: "Chain rule per coordinate, then recognize a matrix–vector product."
+  - id: q2
+    type: numeric
+    category: math
+    critical: true
+    prompt: |
+      Data: $X=\begin{bmatrix}1\\2\end{bmatrix}$, $\mathbf{y}=(2,4)$. At $w=0$, $b=0$, compute $\partial L/\partial w$ for
+      $L=\frac1n\|Xw+b-\mathbf{y}\|^2$.
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      numeric: {value: -10, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "r = (−2, −4); (2/2)(1·(−2) + 2·(−4)) = −10."
+  - id: q3
+    type: mcq
+    category: math
+    prompt: "With $X\\in\\mathbb{R}^{n\\times d}$ and residuals $\\mathbf{r}\\in\\mathbb{R}^n$, which expression has the shape of $\\mathbf{w}$?"
+    objective_ids: [b01.m03.l05.o1]
+    options:
+      - {id: a, text: "X^T r"}
+      - {id: b, text: "X r"}
+      - {id: c, text: "r^T r"}
+      - {id: d, text: "X X^T r"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "(d×n)(n) = d. X r is not even defined unless d = n."
+  - id: q4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Describe how to check an analytic gradient numerically. Why use the central difference, and why compare
+      with **relative** rather than absolute error? Name a bug this would catch.
+    objective_ids: [b01.m03.l05.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Perturb each parameter by ±h and compute (L(θ+h e_j) − L(θ−h e_j)) / 2h, compare with analytic gradient entry j"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Central difference has error O(h²) vs O(h) for forward difference (more accurate)"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Relative error accounts for gradient magnitudes varying by orders of magnitude; absolute thresholds are meaningless across scales"}
+          - {id: c4, points: 1, required_for_mastery: false, description: "Names a catchable bug, e.g. missing factor of 2, wrong transpose, sum vs mean, sign error"}
+        reference_answer: "For each coordinate, estimate (L(θ+h e_j) − L(θ−h e_j))/(2h) and compare with the analytic value. Central differences are second-order accurate. Use |a−n|/max(|a|,|n|) since a 1e−4 absolute error is huge for a gradient of 1e−5 and tiny for 1e3. It catches a missing factor of 2, a missing transpose, or a mean/sum mismatch."
+        common_misconceptions: ["Using a very tiny h like 1e-20 is always better"]
+      explanation: "Central differences + relative error."
+  - id: q5
+    type: short_answer
+    category: conceptual
+    points: 3
+    prompt: |
+      Three training runs: (A) the loss is flat from step 0; (B) the loss decreases in a slow straight line;
+      (C) the loss becomes `nan` after a few steps. Give the most likely cause of each.
+    objective_ids: [b01.m03.l05.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: false, description: "A: gradient zero/not applied — e.g. update not assigned, wrong sign/bug, parameters not updated"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "B: learning rate too small or unscaled features (ill-conditioning)"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "C: learning rate too large (divergence) or numerical bug"}
+        reference_answer: "A: the update isn't happening (gradient is zero or never applied). B: learning rate too small or poorly scaled features. C: learning rate too large, so the iterates diverge to inf/nan."
+        common_misconceptions: []
+      explanation: "Loss curves map to a small set of causes."
+  - id: q6
+    type: mcq
+    category: conceptual
+    prompt: "One feature is in the thousands, another is between 0 and 1. With unscaled features, gradient descent typically:"
+    objective_ids: [b01.m03.l05.o3]
+    options:
+      - {id: a, text: "needs a tiny learning rate to stay stable and then crawls along the small-scale feature's weight"}
+      - {id: b, text: "converges faster because large features give larger gradients"}
+      - {id: c, text: "is unaffected, since the minimum is the same"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Large-scale features create high curvature, which caps η; low-curvature directions then progress slowly."
+  - id: c1
+    type: code
+    category: coding
+    critical: true
+    points: 6
+    prompt: |
+      Implement in NumPy:
+
+      1. `mse_and_grad(X, y, w, b)` → `(loss, grad_w, grad_b)` for $L=\frac1n\|X\mathbf{w}+b-\mathbf{y}\|^2$.
+      2. `grad_check(X, y, w, b, h=1e-6)` → the maximum relative error between your analytic gradient (w and b)
+         and central differences.
+      3. `fit(X, y, lr=0.1, epochs=1000)` → `(w, b, history)` where `history[t]` is the loss **before** update
+         `t`. Start from zeros.
+    objective_ids: [b01.m03.l05.o2, b01.m03.l05.o1]
+    hints: ["Vectorize: r = X @ w + b - y.", "For grad_check, perturb w[j] on a copy, and b separately."]
+    code:
+      starter_code: |
+        import numpy as np
+
+
+        def mse_and_grad(X: np.ndarray, y: np.ndarray, w: np.ndarray, b: float):
+            """Return (loss, grad_w, grad_b)."""
+            raise NotImplementedError
+
+
+        def grad_check(X, y, w, b, h: float = 1e-6) -> float:
+            """Return the max relative error between analytic and numerical gradients (over w and b)."""
+            raise NotImplementedError
+
+
+        def fit(X, y, lr: float = 0.1, epochs: int = 1000):
+            """Full-batch gradient descent from zeros. Return (w, b, history)."""
+            raise NotImplementedError
+      required_functions: [mse_and_grad, grad_check, fit]
+      allowed_imports: [numpy, math]
+      time_limit_seconds: 20
+      public_tests:
+        - name: test_tiny_example
+          code: |
+            def test_tiny_example():
+                import numpy as np
+                loss, gw, gb = mse_and_grad(np.array([[1.0], [2.0]]), np.array([2.0, 4.0]), np.zeros(1), 0.0)
+                assert abs(loss - 10.0) < 1e-12
+                assert abs(gw[0] + 10.0) < 1e-12 and abs(gb + 6.0) < 1e-12
+    grading:
+      code:
+        hidden_tests:
+          - name: test_grad_check_small
+            weight: 2
+            code: |
+              def test_grad_check_small():
+                  import numpy as np
+                  rng = np.random.default_rng(1)
+                  X, y = rng.normal(size=(30, 4)), rng.normal(size=30)
+                  w, b = rng.normal(size=4), 0.7
+                  assert grad_check(X, y, w, b) < 1e-5
+          - name: test_gradient_shapes
+            code: |
+              def test_gradient_shapes():
+                  import numpy as np
+                  X, y = np.ones((5, 3)), np.zeros(5)
+                  loss, gw, gb = mse_and_grad(X, y, np.zeros(3), 0.0)
+                  assert np.shape(gw) == (3,) and np.ndim(gb) == 0
+          - name: test_fit_recovers_weights
+            weight: 2
+            code: |
+              def test_fit_recovers_weights():
+                  import numpy as np
+                  rng = np.random.default_rng(0)
+                  X = rng.normal(size=(300, 3))
+                  w_true = np.array([2.0, -1.0, 0.5])
+                  y = X @ w_true + 0.3
+                  w, b, hist = fit(X, y, lr=0.1, epochs=2000)
+                  assert np.allclose(w, w_true, atol=1e-3) and abs(b - 0.3) < 1e-3
+          - name: test_history_semantics
+            code: |
+              def test_history_semantics():
+                  import numpy as np
+                  X, y = np.array([[1.0], [2.0]]), np.array([2.0, 4.0])
+                  w, b, hist = fit(X, y, lr=0.05, epochs=50)
+                  assert len(hist) == 50
+                  assert abs(hist[0] - 10.0) < 1e-12
+                  assert all(hist[i + 1] <= hist[i] + 1e-12 for i in range(len(hist) - 1))
+          - name: test_grad_check_detects_bug
+            code: |
+              def test_grad_check_detects_bug():
+                  # grad_check must compare against the analytic gradient, not trivially return 0
+                  import numpy as np
+                  X, y = np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([1.0, 0.0])
+                  err = grad_check(X, y, np.array([0.5, -0.5]), 0.1)
+                  assert 0 <= err < 1e-5
+        forbidden_imports: [sklearn, scipy, torch, jax]
+        forbidden_calls: [np.linalg.lstsq, np.linalg.solve, np.linalg.inv, np.linalg.pinv, numpy.linalg.lstsq, numpy.linalg.solve, numpy.linalg.inv, numpy.linalg.pinv, np.polyfit]
+        reference_solution: |
+          import numpy as np
+
+          def mse_and_grad(X, y, w, b):
+              r = X @ w + b - y
+              n = len(y)
+              return float(r @ r / n), 2 / n * (X.T @ r), float(2 / n * r.sum())
+
+          def grad_check(X, y, w, b, h=1e-6):
+              _, gw, gb = mse_and_grad(X, y, w, b)
+              errs = []
+              for j in range(len(w)):
+                  wp, wm = w.copy(), w.copy()
+                  wp[j] += h; wm[j] -= h
+                  num = (mse_and_grad(X, y, wp, b)[0] - mse_and_grad(X, y, wm, b)[0]) / (2 * h)
+                  errs.append(abs(num - gw[j]) / max(abs(num), abs(gw[j]), 1e-12))
+              num_b = (mse_and_grad(X, y, w, b + h)[0] - mse_and_grad(X, y, w, b - h)[0]) / (2 * h)
+              errs.append(abs(num_b - gb) / max(abs(num_b), abs(gb), 1e-12))
+              return max(errs)
+
+          def fit(X, y, lr=0.1, epochs=1000):
+              w, b, hist = np.zeros(X.shape[1]), 0.0, []
+              for _ in range(epochs):
+                  loss, gw, gb = mse_and_grad(X, y, w, b)
+                  hist.append(loss)
+                  w, b = w - lr * gw, b - lr * gb
+              return w, b, hist
+        review_focus: ["Vectorized gradient (no Python loops over examples)", "Iterative gradient descent rather than a closed-form solution", "Correct relative-error formula in grad_check"]
+      explanation: "r = Xw + b − y; grad_w = 2/n Xᵀr; grad_b = 2/n Σr; central differences for the check."
+homework:
+  - "Show that with standardized features and lr = 0.5·n/‖X‖² gradient descent is stable (hint: largest curvature)."
+completion:
+  required_section_ids: [s1, s2, s3, s4, s5, s6, s7]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, c1]
+  pass_threshold: 0.85
+variant_bank:
+  - id: v1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Same data as before ($X=[1;2]$, $\\mathbf{y}=(2,4)$, $w=b=0$). Compute $\\partial L/\\partial b$."
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      numeric: {value: -6, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "(2/2)(−2 − 4) = −6."
+  - id: v2
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: "Explain why the MSE gradient contains $X^\\top$ and not $X$. What does each entry of $X^\\top\\mathbf{r}$ measure?"
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "∂L/∂w_j sums over examples i of r_i X_ij, i.e. column j of X dotted with r"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Dotting columns of X with r is X^T r; shape d matches w"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Interprets entry j as how much feature j correlates with the errors (feature-weighted residual sum)"}
+        reference_answer: "∂L/∂w_j = (2/n)Σ_i r_i X_ij: column j of X dotted with the residuals. Collecting column dot products is Xᵀr, which has w's shape. Entry j measures how strongly feature j lines up with the current errors."
+        common_misconceptions: []
+      explanation: "Columns of X dotted with residuals."
+  - id: v3
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: "Your gradient check reports a relative error of 0.5 for every weight and 1e-9 for the bias. What bug is most likely, and how would you find it?"
+    objective_ids: [b01.m03.l05.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "The weight gradient is off by a constant factor of 2 (e.g. missing the 2, or using 1/(2n)) — relative error 0.5 means half/double"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "The bias path is correct, so the error is specific to the weight gradient expression"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Find it by comparing on a tiny hand-computable example or inspecting the factor in grad_w"}
+        reference_answer: "A uniform 0.5 relative error means the analytic weight gradient is exactly half (or double) the true one — a missing factor of 2 in grad_w only, since the bias passes. Check against a 2-example hand calculation."
+        common_misconceptions: []
+      explanation: "Constant relative error ⇒ constant-factor bug."

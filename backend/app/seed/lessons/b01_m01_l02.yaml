@@ -1,0 +1,454 @@
+lesson_key: b01.m01.l02
+title: Matrix multiplication and linear transformations
+subtitle: A matrix is a function — and a neural-network layer is one
+summary: >-
+  A matrix–vector product is a stack of dot products, and also a weighted sum of the matrix's columns. Reading
+  the columns as "where the basis vectors land" turns every matrix into a geometric transformation, and matrix
+  multiplication into function composition.
+why_it_matters: >-
+  A dense layer computes y = Wx + b. Attention computes QKᵀ. GPU performance work is largely about computing
+  matrix products fast. You cannot reason about shapes, layers or kernels without fluency here.
+explanation_strategy: two-views (rows as dot products, columns as basis images) with geometry
+estimated_minutes: 60
+prerequisites: [la.scalars_vectors, la.dot_product]
+objectives:
+  - {id: b01.m01.l02.o1, concept_key: la.matmul, critical: true, bloom: apply, statement: "Compute matrix products, determine when they are defined, and read entry (i,j) as a dot product"}
+  - {id: b01.m01.l02.o2, concept_key: la.linear_maps, critical: true, bloom: understand, statement: "Interpret a matrix as a linear transformation via where it sends the basis vectors"}
+  - {id: b01.m01.l02.o3, concept_key: la.matmul, critical: false, bloom: analyze, statement: "Explain composition, non-commutativity, and why a neural-network layer is a matrix multiply"}
+  - {id: b01.m01.l02.o4, concept_key: la.matrices, critical: false, bloom: remember, statement: "Use transpose, identity and shape reasoning correctly"}
+connections:
+  - {concept_key: la.dot_product, direction: builds_on, note: "Each output entry is a dot product of a row with the input."}
+  - {concept_key: calc.matrix_calculus, direction: leads_to, note: "The Jacobian of x ↦ Wx is W itself."}
+resources:
+  - id: r-3b1b-lt
+    kind: video
+    title: "Linear transformations and matrices | Chapter 3, Essence of linear algebra"
+    url: https://www.youtube.com/watch?v=kYB8IZa5AuE
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~11 min)"
+    why: The canonical visual explanation of columns as images of basis vectors.
+    required: false
+  - id: r-3b1b-comp
+    kind: video
+    title: "Matrix multiplication as composition | Chapter 4, Essence of linear algebra"
+    url: https://www.youtube.com/watch?v=XkY2DOUCWMU
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~10 min)"
+    why: Why multiplying matrices means applying one transformation after another.
+    required: false
+  - id: r-dlbook
+    kind: book
+    title: Deep Learning
+    url: https://www.deeplearningbook.org/
+    authors: [Ian Goodfellow, Yoshua Bengio, Aaron Courville]
+    publisher: MIT Press (free online)
+    details: "Ch. 2.1–2.3"
+    why: Concise linear-algebra reference with deep-learning notation.
+    required: false
+  - id: r-broadcast
+    kind: docs
+    title: "NumPy: Broadcasting"
+    url: https://numpy.org/doc/stable/user/basics.broadcasting.html
+    publisher: NumPy
+    why: How the "+ b" in Wx + b works on batches.
+    required: false
+sections:
+  - id: s1
+    kind: retrieval
+    title: Warm-up
+    estimated_minutes: 4
+    blocks:
+      - {type: markdown, text: "Quick retrieval from last lesson."}
+      - {type: question, question_id: w1}
+      - {type: question, question_id: w2}
+  - id: s2
+    kind: concept
+    title: Transforming many numbers at once
+    estimated_minutes: 9
+    blocks:
+      - type: markdown
+        text: |
+          Last lesson, one neuron computed one dot product $\mathbf{w}\cdot\mathbf{x}$. A layer has many neurons,
+          each with its own weight vector. Stack those weight vectors as the **rows** of a matrix $W$ and you can
+          write the whole layer as one operation:
+      - type: equation
+        latex: 'W\mathbf{x} = \begin{bmatrix} \text{---}\ \mathbf{w}_1^\top\ \text{---} \\ \text{---}\ \mathbf{w}_2^\top\ \text{---} \\ \vdots \\ \text{---}\ \mathbf{w}_m^\top\ \text{---}\end{bmatrix}\mathbf{x} = \begin{bmatrix}\mathbf{w}_1\cdot\mathbf{x}\\ \mathbf{w}_2\cdot\mathbf{x}\\ \vdots \\ \mathbf{w}_m\cdot\mathbf{x}\end{bmatrix}'
+        caption: Row view — each output is a dot product.
+      - type: markdown
+        text: |
+          That is the **row view**. There is a second, equally important **column view**: $W\mathbf{x}$ is a
+          weighted sum of $W$'s columns, with weights given by the entries of $\mathbf{x}$:
+      - type: equation
+        latex: 'W\mathbf{x} = x_1\,\mathbf{c}_1 + x_2\,\mathbf{c}_2 + \dots + x_n\,\mathbf{c}_n'
+        caption: Column view — a linear combination of columns.
+      - type: markdown
+        text: |
+          The column view leads to the key geometric idea. The standard basis vector $\mathbf{e}_1=(1,0,\dots)$
+          picks out the first column: $W\mathbf{e}_1=\mathbf{c}_1$. So **the columns of a matrix are where the
+          basis vectors land**. Since every vector is a combination of basis vectors, and the map preserves
+          combinations ($W(\alpha\mathbf{u}+\beta\mathbf{v})=\alpha W\mathbf{u}+\beta W\mathbf{v}$ — that is what
+          *linear* means), knowing the columns tells you everything the matrix does.
+      - type: callout
+        variant: example
+        title: Reading a matrix
+        text: |
+          $M=\begin{bmatrix}2&0\\0&1\end{bmatrix}$ sends $\mathbf{e}_1\to(2,0)$ and $\mathbf{e}_2\to(0,1)$: it
+          stretches horizontally by 2. $S=\begin{bmatrix}1&1\\0&1\end{bmatrix}$ keeps $\mathbf{e}_1$ fixed and sends
+          $\mathbf{e}_2\to(1,1)$: a horizontal **shear**.
+      - type: callout
+        variant: history
+        title: Why matrix multiplication is defined "that weird way"
+        text: |
+          Cayley (1858) defined the matrix product precisely so that it represents doing one linear substitution
+          after another. The row-times-column rule is not arbitrary: it is what composition forces.
+  - id: s3
+    kind: math
+    title: Matrix products, shapes and composition
+    estimated_minutes: 13
+    blocks:
+      - type: markdown
+        text: |
+          For $A \in \mathbb{R}^{m\times n}$ and $B \in \mathbb{R}^{n\times p}$, the product $C = AB \in \mathbb{R}^{m\times p}$ has entries
+      - type: equation
+        latex: 'C_{ij} = \sum_{k=1}^{n} A_{ik}B_{kj} = (\text{row } i \text{ of } A)\cdot(\text{column } j \text{ of } B)'
+      - type: markdown
+        text: |
+          **Shapes:** $(m\times \underline{n})(\underline{n}\times p) = m \times p$. The inner dimensions must match
+          because each entry is a dot product of vectors of length $n$. Cost: $m\cdot n\cdot p$ multiply–adds — the
+          number that dominates the compute of every neural network.
+
+          **Worked example.** $A=\begin{bmatrix}1&2\\3&4\end{bmatrix}$, $B=\begin{bmatrix}5&6\\7&8\end{bmatrix}$:
+          $C_{11}=1\cdot5+2\cdot7=19$, $C_{12}=1\cdot6+2\cdot8=22$, $C_{21}=3\cdot5+4\cdot7=43$, $C_{22}=3\cdot6+4\cdot8=50$.
+
+          **Composition.** $(AB)\mathbf{x} = A(B\mathbf{x})$: apply $B$ first, then $A$. Read right-to-left like
+          function composition $f(g(x))$.
+
+          **Non-commutativity.** In general $AB \ne BA$. Rotate-then-stretch is not stretch-then-rotate. Even shapes
+          can forbid it: if $A$ is $3\times4$ and $B$ is $4\times2$, $AB$ is $3\times2$ but $BA$ is undefined.
+
+          **Transpose and identity.** $(A^\top)_{ij}=A_{ji}$; $(AB)^\top = B^\top A^\top$ (order reverses — think
+          "socks and shoes"). The identity $I$ has ones on the diagonal and satisfies $AI = IA = A$: it sends every
+          basis vector to itself.
+
+          **A neural layer.** With a batch $X \in \mathbb{R}^{B\times d_{in}}$ (one example per row), a dense layer
+          computes $Y = XW^\top + \mathbf{b}$ with $W\in\mathbb{R}^{d_{out}\times d_{in}}$. The bias is broadcast
+          across rows. This one line is most of the compute in an MLP.
+  - id: s4
+    kind: demo
+    title: Watch the plane transform
+    estimated_minutes: 9
+    blocks:
+      - type: interactive
+        widget: matrix_transform_2d
+        params: [{name: a, value: 1}, {name: b, value: 1}, {name: c, value: 0}, {name: d, value: 1}]
+        caption: "The matrix [[a, b], [c, d]] applied to the grid. Red = image of e₁ (first column), blue = image of e₂."
+        instructions: |
+          1. Set the matrix to [[0, −1], [1, 0]]. What transformation is it? Check by looking at the columns.
+          2. Make the two columns parallel (e.g. [[1, 2], [2, 4]]). What happens to the grid — and to the area?
+          3. Try [[1, 0], [0, −1]]. What does a negative entry on the diagonal do?
+      - type: resource
+        resource_id: r-3b1b-lt
+        note: Optional reinforcement of the columns-as-basis-images idea.
+  - id: s5
+    kind: recall
+    title: Active recall
+    estimated_minutes: 13
+    blocks:
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+      - {type: question, question_id: q7}
+  - id: s6
+    kind: coding
+    title: Matrix multiply from scratch
+    estimated_minutes: 9
+    blocks:
+      - type: markdown
+        text: |
+          Implement matrix–vector and matrix–matrix products with plain Python lists (a matrix is a list of rows).
+          You'll reuse this mental model when you write a tiled GPU kernel in Block 7.
+      - {type: question, question_id: c1}
+  - id: s7
+    kind: summary
+    title: Summary
+    estimated_minutes: 3
+    blocks:
+      - type: markdown
+        text: |
+          - $W\mathbf{x}$: rows dot $\mathbf{x}$ (row view) = combination of columns (column view).
+          - Columns are the images of the basis vectors; that fully determines a linear map.
+          - $(AB)_{ij}$ = row $i$ of $A$ · column $j$ of $B$; shapes $(m\times n)(n\times p)\to m\times p$.
+          - $AB$ means "apply $B$, then $A$"; generally $AB\neq BA$; $(AB)^\top=B^\top A^\top$.
+
+          **Next:** calculus — how outputs change when inputs change, which is what lets us *learn* $W$.
+questions:
+  - id: w1
+    type: numeric
+    category: recall
+    required: false
+    prompt: "Compute $(2,3)\\cdot(4,-1)$."
+    objective_ids: [b01.m01.l02.o1]
+    grading:
+      numeric: {value: 5, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "8 − 3 = 5."
+  - id: w2
+    type: mcq
+    category: recall
+    required: false
+    prompt: "Two vectors have dot product 0. They are…"
+    objective_ids: [b01.m01.l02.o1]
+    options:
+      - {id: a, text: "orthogonal"}
+      - {id: b, text: "parallel"}
+      - {id: c, text: "both zero vectors"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "cos 90° = 0."
+  - id: q1
+    type: numeric
+    category: math
+    critical: true
+    prompt: |
+      Let $A=\begin{bmatrix}1&2\\3&4\end{bmatrix}$ and $B=\begin{bmatrix}0&1\\1&0\end{bmatrix}$.
+      What is the entry in row 2, column 1 of $AB$?
+    objective_ids: [b01.m01.l02.o1]
+    hints: ["Row 2 of A dotted with column 1 of B."]
+    grading:
+      numeric: {value: 4, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "(3, 4)·(0, 1) = 4. In full, AB = [[2, 1], [4, 3]]: B swaps A's columns."
+  - id: q2
+    type: mcq
+    category: math
+    prompt: "$A$ is $3\\times4$ and $B$ is $4\\times2$. Which statement is true?"
+    objective_ids: [b01.m01.l02.o1, b01.m01.l02.o4]
+    options:
+      - {id: a, text: "AB is 3×2 and BA is undefined"}
+      - {id: b, text: "AB is 4×4 and BA is 3×2"}
+      - {id: c, text: "AB and BA are both defined and 3×2"}
+      - {id: d, text: "AB is undefined because 3 ≠ 2"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Inner dimensions 4 = 4 match for AB, giving 3×2. For BA the inner dimensions are 2 and 3, which don't match."
+  - id: q3
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Consider $M=\begin{bmatrix}0&-1\\1&0\end{bmatrix}$. **Without** multiplying it by a general vector, describe
+      the geometric transformation it performs. Explain how you can read this off the matrix.
+    objective_ids: [b01.m01.l02.o2]
+    hints: ["Where does (1, 0) go? Where does (0, 1) go?"]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "Explains that the columns are the images of the basis vectors e1 and e2"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Identifies e1 → (0, 1) and e2 → (−1, 0)"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Concludes it is a rotation by 90° counterclockwise (anticlockwise)"}
+        reference_answer: "The first column (0, 1) is where e1 lands and the second column (−1, 0) is where e2 lands. Both basis vectors are turned 90° counterclockwise, and by linearity so is every vector: M is a 90° counterclockwise rotation."
+        common_misconceptions: ["Reading the rows instead of the columns as basis images", "Calling it a reflection"]
+      explanation: "Columns = images of basis vectors; e1 → (0,1), e2 → (−1,0): a 90° CCW rotation."
+  - id: q4
+    type: mcq
+    category: math
+    critical: true
+    prompt: "A linear map $T$ sends $\\mathbf{e}_1\\mapsto(2,0)$ and $\\mathbf{e}_2\\mapsto(1,1)$. What is $T(3,2)$?"
+    objective_ids: [b01.m01.l02.o2]
+    options:
+      - {id: a, text: "(8, 2)"}
+      - {id: b, text: "(6, 2)"}
+      - {id: c, text: "(7, 3)"}
+      - {id: d, text: "(5, 5)"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "T(3,2) = 3·T(e1) + 2·T(e2) = (6,0) + (2,2) = (8,2)."
+  - id: q5
+    type: short_answer
+    category: conceptual
+    points: 3
+    prompt: |
+      Explain why $AB \neq BA$ in general. Support your explanation with a concrete geometric example of two
+      transformations whose order matters.
+    objective_ids: [b01.m01.l02.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "AB means apply B first then A (composition), so the products describe applying the transformations in different orders"}
+          - {id: c2, points: 2, required_for_mastery: false, description: "Gives a valid concrete example where order changes the result (e.g. rotate 90° vs stretch x by 2; shear then rotate), with some justification of the difference"}
+        reference_answer: "AB corresponds to applying B and then A. Transformations generally don't commute: stretching x by 2 then rotating 90° sends e1 to (0,2), whereas rotating then stretching sends e1 to (0,1)."
+        common_misconceptions: ["Matrix multiplication is commutative like number multiplication"]
+      explanation: "Order of composition matters; matrices represent compositions."
+  - id: q6
+    type: short_answer
+    category: conceptual
+    points: 3
+    prompt: |
+      A dense layer maps a 784-dimensional input to 128 outputs: $\mathbf{y}=W\mathbf{x}+\mathbf{b}$. What is the
+      shape of $W$, and what does each row of $W$ compute?
+    objective_ids: [b01.m01.l02.o3, b01.m01.l02.o4]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "W is 128 × 784"}
+          - {id: c2, points: 2, required_for_mastery: true, description: "Each row is one neuron's weight vector; it computes a dot product with x (plus that neuron's bias) to give one output"}
+        reference_answer: "W is 128×784. Row i holds neuron i's 784 weights, and y_i = w_i · x + b_i."
+        common_misconceptions: ["W is 784 × 128 in the y = Wx convention"]
+      explanation: "Outputs × inputs; each row is one neuron's dot product."
+  - id: q7
+    type: mcq
+    category: recall
+    prompt: "$(AB)^\\top$ equals:"
+    objective_ids: [b01.m01.l02.o4]
+    options:
+      - {id: a, text: "B^T A^T"}
+      - {id: b, text: "A^T B^T"}
+      - {id: c, text: "BA"}
+      - {id: d, text: "AB, because transposition doesn't change products"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "((AB)^T)_{ij} = (AB)_{ji} = Σ_k A_{jk}B_{ki} = (B^T A^T)_{ij}."
+  - id: c1
+    type: code
+    category: coding
+    critical: true
+    points: 5
+    prompt: |
+      Implement `matvec(A, x)` and `matmul(A, B)` where matrices are lists of rows. Raise `ValueError` when
+      shapes are incompatible. Do not use NumPy.
+    objective_ids: [b01.m01.l02.o1]
+    hints: ["Entry (i, j) of AB is a dot product — of which row and which column?", "Column j of B is [row[j] for row in B]."]
+    code:
+      starter_code: |
+        def matvec(A: list[list[float]], x: list[float]) -> list[float]:
+            """Return A @ x. A is m×n (list of m rows), x has length n."""
+            raise NotImplementedError
+
+
+        def matmul(A: list[list[float]], B: list[list[float]]) -> list[list[float]]:
+            """Return A @ B for A (m×n) and B (n×p)."""
+            raise NotImplementedError
+      required_functions: [matvec, matmul]
+      allowed_imports: []
+      time_limit_seconds: 5
+      public_tests:
+        - name: test_matvec_basic
+          code: |
+            def test_matvec_basic():
+                assert matvec([[1, 2], [3, 4]], [1, 1]) == [3, 7]
+        - name: test_matmul_basic
+          code: |
+            def test_matmul_basic():
+                assert matmul([[1, 2], [3, 4]], [[5, 6], [7, 8]]) == [[19, 22], [43, 50]]
+    grading:
+      code:
+        hidden_tests:
+          - name: test_matmul_rectangular
+            code: |
+              def test_matmul_rectangular():
+                  A = [[1, 0, 2], [0, 1, 1]]          # 2x3
+                  B = [[1, 2], [3, 4], [5, 6]]        # 3x2
+                  assert matmul(A, B) == [[11, 14], [8, 10]]
+          - name: test_shape_errors
+            code: |
+              def test_shape_errors():
+                  for f, args in [(matmul, ([[1, 2]], [[1, 2]])), (matvec, ([[1, 2]], [1, 2, 3]))]:
+                      try:
+                          f(*args)
+                      except ValueError:
+                          continue
+                      assert False, "expected ValueError"
+          - name: test_identity
+            code: |
+              def test_identity():
+                  I = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+                  A = [[2, -1, 0], [0.5, 3, 1], [4, 4, 4]]
+                  assert matmul(A, I) == A and matmul(I, A) == A
+          - name: test_noncommutative
+            code: |
+              def test_noncommutative():
+                  R = [[0, -1], [1, 0]]
+                  S = [[2, 0], [0, 1]]
+                  assert matmul(R, S) == [[0, -1], [2, 0]]
+                  assert matmul(S, R) == [[0, -2], [1, 0]]
+          - name: test_outer_shape
+            code: |
+              def test_outer_shape():
+                  out = matmul([[1], [2], [3]], [[4, 5]])
+                  assert out == [[4, 5], [8, 10], [12, 15]]
+        forbidden_imports: [numpy, scipy, torch]
+        reference_solution: |
+          def matvec(A, x):
+              if any(len(row) != len(x) for row in A):
+                  raise ValueError("shape mismatch")
+              return [sum(a * b for a, b in zip(row, x)) for row in A]
+
+          def matmul(A, B):
+              n = len(B)
+              if any(len(row) != n for row in A):
+                  raise ValueError("inner dimensions must match")
+              cols = [[row[j] for row in B] for j in range(len(B[0]))]
+              return [[sum(a * b for a, b in zip(row, col)) for col in cols] for row in A]
+        review_focus: ["Shape validation", "Builds on the dot product rather than ad-hoc indexing errors"]
+      explanation: "Each output entry is a row–column dot product; validate the inner dimension first."
+homework:
+  - "Find a 2×2 matrix A ≠ I with A² = I. Interpret it geometrically."
+  - "Show that the columns of AB are A times the columns of B."
+completion:
+  required_section_ids: [s1, s2, s3, s4, s5, s6, s7]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, q7, c1]
+  pass_threshold: 0.85
+variant_bank:
+  - id: v1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "For $A=\\begin{bmatrix}2&0\\\\1&3\\end{bmatrix}$, $B=\\begin{bmatrix}1&4\\\\2&1\\end{bmatrix}$, what is $(AB)_{12}$ (row 1, column 2)?"
+    objective_ids: [b01.m01.l02.o1]
+    grading:
+      numeric: {value: 8, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "(2, 0)·(4, 1) = 8."
+  - id: v2
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: "Explain how to compute entry $(i,j)$ of a matrix product and why the inner dimensions must agree."
+    objective_ids: [b01.m01.l02.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "Entry (i,j) is the dot product of row i of A with column j of B (sum over k of A_ik B_kj)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Dot product needs equal-length vectors, so A's number of columns must equal B's number of rows"}
+        reference_answer: "(AB)_ij = Σ_k A_ik B_kj = row i of A · column j of B. A dot product needs vectors of equal length, so cols(A) = rows(B)."
+        common_misconceptions: []
+      explanation: "Row–column dot product; equal lengths required."
+  - id: v3
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: "Describe the transformation $\\begin{bmatrix}1&1\\\\0&1\\end{bmatrix}$ by reading its columns."
+    objective_ids: [b01.m01.l02.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "e1 stays at (1,0) (first column)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "e2 moves to (1,1) (second column)"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Names it a horizontal shear (area preserved)"}
+        reference_answer: "First column (1,0): e1 fixed. Second column (1,1): e2 slides right by 1. It is a horizontal shear."
+        common_misconceptions: []
+      explanation: "A shear."
+  - id: v4
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Apply $\\begin{bmatrix}1&0\\\\0&-1\\end{bmatrix}$ to $(3,4)$. What is the second coordinate of the result?"
+    objective_ids: [b01.m01.l02.o2]
+    grading:
+      numeric: {value: -4, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "A reflection across the x-axis: (3, −4)."

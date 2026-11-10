@@ -1,0 +1,215 @@
+lesson_key: b01.m03.checkpoint
+title: "Foundations Checkpoint: vectors to gradient descent"
+subtitle: Cumulative assessment for Modules 1.1–1.3
+summary: >-
+  A cumulative, closed-book check of everything from vectors to implementing gradient descent. Every critical
+  objective must individually meet the mastery bar.
+why_it_matters: >-
+  Everything in Blocks 4–5 (regression, classification, backpropagation) assumes these ideas are automatic.
+  This checkpoint makes sure they are before moving on.
+explanation_strategy: cumulative-assessment
+estimated_minutes: 45
+prerequisites: [la.dot_product, la.norms, la.matmul, la.linear_maps, calc.derivatives, calc.chain_rule, calc.partial_gradients, opt.gradient_descent, opt.learning_rate, opt.gd_implementation]
+objectives:
+  - {id: b01.m01.l01.o2, concept_key: la.dot_product, critical: true, statement: "Compute the dot product algebraically and interpret it geometrically as |a||b|cos θ"}
+  - {id: b01.m01.l01.o3, concept_key: la.norms, critical: true, statement: "Compute L1/L2 norms and cosine similarity, and explain when cosine similarity is preferable to Euclidean distance"}
+  - {id: b01.m01.l02.o1, concept_key: la.matmul, critical: true, statement: "Compute matrix products, determine when they are defined, and read entry (i,j) as a dot product"}
+  - {id: b01.m01.l02.o2, concept_key: la.linear_maps, critical: true, statement: "Interpret a matrix as a linear transformation via where it sends the basis vectors"}
+  - {id: b01.m02.l03.o2, concept_key: calc.chain_rule, critical: true, statement: "Apply the chain rule to composite functions and explain why it multiplies local rates of change"}
+  - {id: b01.m02.l03.o3, concept_key: calc.partial_gradients, critical: true, statement: "Compute partial derivatives and gradients, and explain why the gradient points in the direction of steepest ascent"}
+  - {id: b01.m03.l04.o2, concept_key: opt.learning_rate, critical: true, statement: "Explain how the learning rate affects convergence, oscillation and divergence"}
+  - {id: b01.m03.l05.o1, concept_key: opt.gd_implementation, critical: true, statement: "Derive the mean-squared-error gradient for linear regression in vectorized form"}
+connections: []
+resources: []
+sections:
+  - id: s1
+    kind: recall
+    title: Instructions
+    estimated_minutes: 2
+    blocks:
+      - type: markdown
+        text: |
+          Closed book: don't consult the lessons or the tutor (the tutor is disabled for graded assessments).
+          Explanations are graded on correctness and reasoning, not length. Pass mark: 85% overall **and** 85% on
+          every critical objective.
+  - id: s2
+    kind: recall
+    title: Linear algebra
+    estimated_minutes: 13
+    blocks:
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+  - id: s3
+    kind: recall
+    title: Calculus
+    estimated_minutes: 13
+    blocks:
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+      - {type: question, question_id: q7}
+  - id: s4
+    kind: recall
+    title: Optimization
+    estimated_minutes: 17
+    blocks:
+      - {type: question, question_id: q8}
+      - {type: question, question_id: q9}
+      - {type: question, question_id: q10}
+questions:
+  - id: q1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Vectors $\\mathbf{a}$ and $\\mathbf{b}$ have lengths 4 and 5 and meet at an angle of 60°. Compute $\\mathbf{a}\\cdot\\mathbf{b}$."
+    objective_ids: [b01.m01.l01.o2]
+    grading:
+      numeric: {value: 10, abs_tol: 0.0001, rel_tol: 0}
+      explanation: "4·5·cos 60° = 20·0.5 = 10."
+  - id: q2
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      Embedding vectors are often normalized to unit length before similarity search. After normalization, how
+      are the dot product, cosine similarity and Euclidean distance related? Why does this make the choice
+      between them irrelevant for ranking?
+    objective_ids: [b01.m01.l01.o3, b01.m01.l01.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "For unit vectors, dot product equals cosine similarity (denominator is 1)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "|a − b|² = |a|² + |b|² − 2a·b = 2 − 2a·b, so distance is a decreasing function of the dot product"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Therefore ranking by largest dot/cosine or smallest distance gives the same order"}
+        reference_answer: "With |a| = |b| = 1, cos_sim = a·b, and |a − b|² = 2 − 2a·b. Distance decreases monotonically as the dot product increases, so all three produce the same ranking."
+        common_misconceptions: ["Normalization changes the direction of vectors"]
+      explanation: "|a − b|² = 2 − 2 a·b for unit vectors."
+  - id: q3
+    type: numeric
+    category: math
+    critical: true
+    prompt: "$A$ is $2\\times3$ with rows $(1,0,2)$ and $(0,1,1)$; $B$ is $3\\times2$ with rows $(1,2)$, $(3,4)$, $(5,6)$. What is $(AB)_{22}$?"
+    objective_ids: [b01.m01.l02.o1]
+    grading:
+      numeric: {value: 10, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "Row 2 of A (0,1,1) · column 2 of B (2,4,6) = 0 + 4 + 6 = 10."
+  - id: q4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      Write down the $2\times2$ matrix that reflects the plane across the line $y=x$, and explain how you found it
+      without solving any equations.
+    objective_ids: [b01.m01.l02.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Matrix is [[0, 1], [1, 0]]"}
+          - {id: c2, points: 2, required_for_mastery: true, description: "Justifies via columns as images of basis vectors: e1 = (1,0) reflects to (0,1), e2 = (0,1) reflects to (1,0)"}
+        reference_answer: "Reflecting across y = x swaps coordinates: e1 → (0,1), e2 → (1,0). These are the columns, so M = [[0,1],[1,0]]."
+        common_misconceptions: []
+      explanation: "Columns are where the basis vectors land."
+  - id: q5
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute $\\frac{d}{dx}\\,\\sigma(3x)$ at $x=0$, where $\\sigma$ is the sigmoid."
+    objective_ids: [b01.m02.l03.o2]
+    grading:
+      numeric: {value: 0.75, abs_tol: 0.0001, rel_tol: 0}
+      explanation: "σ'(0)·3 = 0.25·3 = 0.75."
+  - id: q6
+    type: derivation
+    category: math
+    critical: true
+    points: 4
+    prompt: |
+      Let $z=f(u,v)$ with $u=x^2$ and $v=e^x$, where $f(u,v)=uv$. Use the chain rule (summing over paths) to
+      compute $\frac{dz}{dx}$, and verify by differentiating $z=x^2e^x$ directly.
+    objective_ids: [b01.m02.l03.o2, b01.m02.l03.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "dz/dx = (∂f/∂u)(du/dx) + (∂f/∂v)(dv/dx) = v·2x + u·e^x"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Substitutes to get 2x e^x + x² e^x"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Verifies with the product rule on x² e^x giving the same result"}
+        reference_answer: "dz/dx = ∂f/∂u·du/dx + ∂f/∂v·dv/dx = v·2x + u·e^x = 2xe^x + x²e^x = (x² + 2x)e^x, matching the product rule."
+        common_misconceptions: ["Multiplying the two path contributions instead of adding them"]
+      explanation: "Sum over paths, product along each path."
+  - id: q7
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      At a point, $\nabla f=(6,-8)$. What is the rate of change of $f$ when moving in the unit direction
+      $\mathbf{u}=(0.6,0.8)$? In which unit direction does $f$ decrease fastest, and at what rate?
+    objective_ids: [b01.m02.l03.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "D_u f = ∇f·u = 3.6 − 6.4 = −2.8"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Fastest decrease along −∇f/|∇f| = (−0.6, 0.8)"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Rate of fastest decrease is −|∇f| = −10"}
+        reference_answer: "∇f·u = 6·0.6 + (−8)·0.8 = −2.8. |∇f| = 10, so the steepest-descent direction is (−0.6, 0.8) with rate −10."
+        common_misconceptions: []
+      explanation: "Directional derivative is a dot product."
+  - id: q8
+    type: mcq
+    category: math
+    critical: true
+    prompt: "Gradient descent on $L(w)=3w^2$. Which learning rate converges while oscillating around the minimum?"
+    objective_ids: [b01.m03.l04.o2]
+    options:
+      - {id: a, text: "η = 0.25"}
+      - {id: b, text: "η = 0.1"}
+      - {id: c, text: "η = 0.4"}
+      - {id: d, text: "η = 1/6 exactly"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "a = 6: oscillating convergence needs 1/6 < η < 1/3. 0.25 qualifies; 0.1 is monotone; 0.4 diverges; 1/6 jumps straight to the minimum."
+  - id: q9
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      A model has two weights; the loss curvature along one is 100× larger than along the other. Explain why
+      gradient descent with a single learning rate is slow here, and give one fix.
+    objective_ids: [b01.m03.l04.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Stability requires η < 2/(largest curvature), so η must be small"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "With that small η, progress along the low-curvature direction is very slow (factor close to 1)"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Fix: feature scaling/standardization (or preconditioning, per-parameter adaptive rates/momentum)"}
+        reference_answer: "η is capped by the high-curvature direction (η < 2/a_max), so the low-curvature direction shrinks by only (1 − ηa_min) ≈ 1 − 0.02 per step. Rescale features (or precondition / use adaptive methods) to equalize curvature."
+        common_misconceptions: []
+      explanation: "Ill-conditioning."
+  - id: q10
+    type: derivation
+    category: math
+    critical: true
+    points: 4
+    prompt: |
+      For ridge regression, $L(\mathbf{w})=\frac1n\|X\mathbf{w}-\mathbf{y}\|^2+\lambda\|\mathbf{w}\|^2$ (no bias).
+      Derive $\nabla_{\mathbf{w}}L$ and write one gradient-descent update.
+    objective_ids: [b01.m03.l05.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "Data term gradient (2/n) X^T (Xw − y)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Penalty gradient 2λw, summed with the data term"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Update w ← w − η[(2/n)X^T(Xw − y) + 2λw]"}
+        reference_answer: "∇L = (2/n)Xᵀ(Xw − y) + 2λw; update w ← w − η((2/n)Xᵀ(Xw − y) + 2λw)."
+        common_misconceptions: ["Penalty gradient λw (missing 2)", "Xr instead of Xᵀr"]
+      explanation: "Gradients of sums add; ∇‖w‖² = 2w."
+homework: []
+completion:
+  required_section_ids: [s1, s2, s3, s4]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, q7, q8, q9, q10]
+  pass_threshold: 0.85
+variant_bank: []

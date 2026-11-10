@@ -1,0 +1,519 @@
+lesson_key: b01.m01.l01
+title: Vectors, dot products, and geometric intuition
+subtitle: The single operation that sits underneath similarity search, neural layers and attention
+summary: >-
+  Vectors are both arrows and lists of numbers. The dot product connects the two views: algebraically it is a
+  sum of products, geometrically it measures how much two vectors point the same way. Norms and cosine
+  similarity follow directly.
+why_it_matters: >-
+  Every neuron computes a dot product between its weights and its input. Embedding search ranks documents by
+  cosine similarity. Transformer attention scores are dot products between queries and keys. If you understand
+  this one operation geometrically, a large fraction of modern AI becomes readable.
+explanation_strategy: geometric-first with worked numeric examples
+estimated_minutes: 60
+prerequisites: []
+objectives:
+  - {id: b01.m01.l01.o1, concept_key: la.scalars_vectors, critical: false, bloom: understand, statement: "Represent data as vectors and distinguish scalars, vectors, matrices and tensors by shape"}
+  - {id: b01.m01.l01.o2, concept_key: la.dot_product, critical: true, bloom: apply, statement: "Compute the dot product algebraically and interpret it geometrically as |a||b|cos θ"}
+  - {id: b01.m01.l01.o3, concept_key: la.norms, critical: true, bloom: analyze, statement: "Compute L1/L2 norms and cosine similarity, and explain when cosine similarity is preferable to Euclidean distance"}
+connections:
+  - {concept_key: la.matmul, direction: leads_to, note: "Every entry of a matrix product is a dot product (next lesson)."}
+  - {concept_key: opt.gradient_descent, direction: leads_to, note: "Gradient descent moves along the direction with the most negative dot product with the gradient."}
+resources:
+  - id: r-3b1b-dot
+    kind: video
+    title: "Dot products and duality | Chapter 9, Essence of linear algebra"
+    url: https://www.youtube.com/watch?v=LyGKycYT2v0
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~14 min)"
+    why: Animated explanation of why the algebraic and geometric definitions agree.
+    required: false
+  - id: r-3b1b-vectors
+    kind: video
+    title: "Vectors | Chapter 1, Essence of linear algebra"
+    url: https://www.youtube.com/watch?v=fNk_zzaMoSs
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~10 min)"
+    why: The arrow view and the list-of-numbers view of vectors, side by side.
+    required: false
+  - id: r-mml
+    kind: book
+    title: Mathematics for Machine Learning
+    url: https://mml-book.github.io/
+    authors: [Marc Peter Deisenroth, A. Aldo Faisal, Cheng Soon Ong]
+    publisher: Cambridge University Press (free PDF from the authors)
+    details: "Ch. 3.1–3.4 (norms, inner products, lengths, angles)"
+    why: A rigorous treatment of inner products and norms written for ML.
+    required: false
+  - id: r-1806
+    kind: course
+    title: "MIT 18.06 Linear Algebra (Spring 2010)"
+    url: https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/
+    authors: [Gilbert Strang]
+    publisher: MIT OpenCourseWare
+    details: "Lecture 1"
+    why: The classic university course; useful throughout Block 1.
+    required: false
+sections:
+  - id: s1
+    kind: retrieval
+    title: Warm-up
+    estimated_minutes: 4
+    blocks:
+      - type: markdown
+        text: |
+          Before any definitions, make a prediction. You'll come back to it at the end of the lesson.
+      - {type: question, question_id: w1}
+  - id: s2
+    kind: concept
+    title: What problem do vectors solve?
+    estimated_minutes: 10
+    blocks:
+      - type: markdown
+        text: |
+          Machine learning needs a way to represent *things* — a house, an image, a word — so that a computer can
+          compare and transform them. The trick is to describe each thing by an ordered list of numbers:
+
+          | Thing | Vector | Dimension |
+          |---|---|---|
+          | A house | (square metres, bedrooms, age) = (120, 3, 25) | 3 |
+          | A 28×28 grayscale image | 784 pixel intensities in a row | 784 |
+          | A word in an LLM | a learned embedding, e.g. 4096 numbers | 4096 |
+
+          Once things are vectors, questions like *"which houses are most like this one?"* or *"which words are
+          related?"* become **geometry**: points that are close or that point in similar directions are similar.
+
+          A vector $\mathbf{a} \in \mathbb{R}^n$ has two equally valid readings:
+
+          1. **A list of numbers** $\mathbf{a} = (a_1, a_2, \dots, a_n)$ — how a computer stores it.
+          2. **An arrow** from the origin to the point $(a_1, \dots, a_n)$ — with a *length* and a *direction*.
+
+          Neither view is "the real one". The power of linear algebra is moving fluently between them.
+      - type: callout
+        variant: key_idea
+        title: Scalars, vectors, matrices, tensors are just shapes
+        text: |
+          A **scalar** is a single number (shape `()`), a **vector** is a 1-D array (shape `(n,)`), a **matrix** is
+          2-D (shape `(m, n)`), and a **tensor** is the general n-D array. A batch of 32 RGB images of size 64×64
+          is a rank-4 tensor of shape `(32, 64, 64, 3)`. In deep learning, "tensor" almost always just means
+          "n-dimensional array" — reasoning about shapes is half of debugging.
+      - type: callout
+        variant: history
+        title: Where the dot product came from
+        text: |
+          In the 1840s Hamilton (quaternions) and Grassmann (the "inner product" of extensive magnitudes) both
+          found products of directed quantities. In the 1880s Gibbs and Heaviside split Hamilton's product into the
+          two pieces physicists actually used — the dot and cross products — giving the vector notation still used
+          today, originally to describe work done by forces: $W = \mathbf{F}\cdot\mathbf{d}$.
+  - id: s3
+    kind: math
+    title: The dot product, two ways
+    estimated_minutes: 14
+    blocks:
+      - type: markdown
+        text: |
+          **Algebraic definition.** For $\mathbf{a}, \mathbf{b} \in \mathbb{R}^n$:
+      - type: equation
+        latex: '\mathbf{a}\cdot\mathbf{b} \;=\; \sum_{i=1}^{n} a_i b_i \;=\; a_1 b_1 + a_2 b_2 + \dots + a_n b_n'
+      - type: markdown
+        text: |
+          It takes two vectors of the **same dimension** and returns a **scalar**. Example: $(2,1)\cdot(1,3) = 2\cdot1 + 1\cdot3 = 5$.
+
+          **Length (L2 norm).** The length of $\mathbf{a}$ is the dot product of $\mathbf{a}$ with itself, square-rooted:
+          $\|\mathbf{a}\|_2 = \sqrt{\mathbf{a}\cdot\mathbf{a}}$ — Pythagoras in $n$ dimensions.
+
+          **Geometric definition.** If $\theta$ is the angle between the arrows:
+      - type: equation
+        latex: '\mathbf{a}\cdot\mathbf{b} \;=\; \|\mathbf{a}\|\,\|\mathbf{b}\|\cos\theta'
+      - type: markdown
+        text: |
+          **Why the two agree.** Apply the law of cosines to the triangle with sides $\mathbf{a}$, $\mathbf{b}$ and
+          $\mathbf{a}-\mathbf{b}$:
+          $\|\mathbf{a}-\mathbf{b}\|^2 = \|\mathbf{a}\|^2 + \|\mathbf{b}\|^2 - 2\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$.
+          Expanding the left side algebraically gives
+          $\|\mathbf{a}-\mathbf{b}\|^2 = (\mathbf{a}-\mathbf{b})\cdot(\mathbf{a}-\mathbf{b}) = \|\mathbf{a}\|^2 - 2\,\mathbf{a}\cdot\mathbf{b} + \|\mathbf{b}\|^2$.
+          Comparing the two expressions, $\mathbf{a}\cdot\mathbf{b} = \|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$. ∎
+
+          **Reading the sign.** Because lengths are non-negative, the sign of the dot product is the sign of $\cos\theta$:
+
+          | $\mathbf{a}\cdot\mathbf{b}$ | angle | meaning |
+          |---|---|---|
+          | $> 0$ | $\theta < 90^\circ$ | point roughly the same way |
+          | $= 0$ | $\theta = 90^\circ$ | **orthogonal** (perpendicular) |
+          | $< 0$ | $\theta > 90^\circ$ | point roughly opposite ways |
+
+          **Projection view.** $\|\mathbf{a}\|\cos\theta$ is the signed length of $\mathbf{a}$'s shadow on the line
+          through $\mathbf{b}$. So $\mathbf{a}\cdot\mathbf{b}$ = (shadow of $\mathbf{a}$ on $\mathbf{b}$) × $\|\mathbf{b}\|$.
+          If $\mathbf{b}$ is a unit vector, the dot product *is* the shadow length.
+      - type: callout
+        variant: example
+        title: Worked example
+        text: |
+          $\mathbf{a}=(2,1)$, $\mathbf{b}=(1,3)$. Then $\mathbf{a}\cdot\mathbf{b}=5$, $\|\mathbf{a}\|=\sqrt5$,
+          $\|\mathbf{b}\|=\sqrt{10}$, so $\cos\theta = 5/\sqrt{50} = 1/\sqrt2$ and $\theta = 45^\circ$.
+      - type: markdown
+        text: |
+          **Other norms.** The L2 norm is one way to measure size. The **L1 norm** $\|\mathbf{a}\|_1=\sum_i |a_i|$ is
+          "taxicab" distance (used in L1 regularization, which encourages sparsity); the **L∞ norm**
+          $\|\mathbf{a}\|_\infty=\max_i |a_i|$ is the largest coordinate. For $(3,-4)$: $\|\cdot\|_1 = 7$,
+          $\|\cdot\|_2 = 5$, $\|\cdot\|_\infty = 4$.
+
+          **Cosine similarity** keeps only the direction:
+      - type: equation
+        latex: '\operatorname{cos\_sim}(\mathbf{a},\mathbf{b}) = \frac{\mathbf{a}\cdot\mathbf{b}}{\|\mathbf{a}\|\,\|\mathbf{b}\|} \in [-1, 1]'
+      - type: markdown
+        text: |
+          It ignores length. That matters when length reflects something irrelevant: a document that repeats every
+          word twice has a word-count vector twice as long but is *about* the same thing. Euclidean distance would
+          call the two documents far apart; cosine similarity calls them identical (similarity 1). Embedding search
+          systems usually normalize vectors to unit length, after which cosine similarity and the dot product
+          coincide — and ranking by Euclidean distance gives the same order, since
+          $\|\mathbf{a}-\mathbf{b}\|^2 = 2 - 2\,\mathbf{a}\cdot\mathbf{b}$ for unit vectors.
+
+          The bound $|\mathbf{a}\cdot\mathbf{b}| \le \|\mathbf{a}\|\|\mathbf{b}\|$ (**Cauchy–Schwarz**) is what
+          guarantees the ratio stays in $[-1, 1]$.
+  - id: s4
+    kind: demo
+    title: See it move
+    estimated_minutes: 8
+    blocks:
+      - type: interactive
+        widget: vector_dot_product
+        params: [{name: ax, value: 2}, {name: ay, value: 1}, {name: bx, value: 1}, {name: by, value: 3}]
+        caption: Drag the arrow tips. The shaded segment is the projection of a onto b.
+        instructions: |
+          1. Rotate b until the dot product is exactly 0. What is the angle?
+          2. Keep the angle fixed and double the length of a. What happens to the dot product? To the cosine similarity?
+          3. Find a pair with a negative dot product. Where does the projection land?
+      - type: resource
+        resource_id: r-3b1b-dot
+        note: Optional — a beautiful explanation of why projection and the algebraic formula agree.
+  - id: s5
+    kind: recall
+    title: Active recall
+    estimated_minutes: 12
+    blocks:
+      - type: markdown
+        text: Answer without scrolling back up. Explanations are graded on understanding, not length.
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+      - {type: question, question_id: q7}
+  - id: s6
+    kind: coding
+    title: Build it from scratch
+    estimated_minutes: 9
+    blocks:
+      - type: markdown
+        text: |
+          Implement the three functions using only plain Python (`math` is allowed). No NumPy: the point is to
+          see that there is nothing hidden inside `np.dot`.
+      - {type: question, question_id: c1}
+  - id: s7
+    kind: summary
+    title: Summary and what's next
+    estimated_minutes: 3
+    blocks:
+      - type: markdown
+        text: |
+          - A vector is a list of numbers *and* an arrow; shape tells you what kind of object you have.
+          - $\mathbf{a}\cdot\mathbf{b}=\sum_i a_i b_i=\|\mathbf{a}\|\|\mathbf{b}\|\cos\theta$. Its sign tells you
+            whether vectors agree, are orthogonal, or oppose.
+          - Norms measure size (L1, L2, L∞); cosine similarity measures direction only.
+
+          **Next:** a matrix–vector product is just a stack of dot products — which is why a neural-network layer,
+          $\mathbf{y}=W\mathbf{x}$, is "many neurons each taking a dot product with the input".
+
+          Revisit your warm-up prediction: was it right?
+questions:
+  - id: w1
+    type: mcq
+    category: recall
+    required: false
+    prompt: "Prediction: two word-embedding vectors point in almost exactly the same direction, but one is 3× longer. A system that cares about *meaning* should consider them…"
+    objective_ids: [b01.m01.l01.o3]
+    options:
+      - {id: a, text: "Very similar"}
+      - {id: b, text: "Very different, because they are far apart"}
+      - {id: c, text: "Impossible to say without the angle in degrees"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Direction encodes meaning; length often encodes frequency or confidence. Cosine similarity captures exactly this."
+  - id: q1
+    type: numeric
+    category: math
+    prompt: "Compute $\\mathbf{a}\\cdot\\mathbf{b}$ for $\\mathbf{a}=(1,-2,3)$ and $\\mathbf{b}=(4,0,-1)$."
+    objective_ids: [b01.m01.l01.o2]
+    critical: true
+    hints: ["Multiply matching coordinates.", "Then add the three products — watch the signs."]
+    grading:
+      numeric: {value: 1, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "1·4 + (−2)·0 + 3·(−1) = 4 + 0 − 3 = 1."
+  - id: q2
+    type: mcq
+    category: conceptual
+    prompt: "For nonzero vectors, $\\mathbf{a}\\cdot\\mathbf{b} < 0$ means:"
+    objective_ids: [b01.m01.l01.o2]
+    options:
+      - {id: a, text: "The angle between them is greater than 90°"}
+      - {id: b, text: "One of the vectors has negative length"}
+      - {id: c, text: "The vectors are orthogonal"}
+      - {id: d, text: "|a| < |b|"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Lengths are non-negative, so the sign comes from cos θ, which is negative exactly when θ > 90°."
+  - id: q3
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Explain, in your own words, the geometric meaning of the dot product. Use it to explain why two orthogonal
+      vectors always have a dot product of zero.
+    objective_ids: [b01.m01.l01.o2]
+    hints: ["Which formula involves an angle?", "What is cos 90°?"]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "States the geometric form a·b = |a||b|cos θ (or equivalent wording: product of lengths times cosine of the angle between them)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Concludes that orthogonal means θ = 90°, cos 90° = 0, so the dot product is 0"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Interprets the dot product as projection / how much one vector points along the other (shadow length times the other's length)"}
+        reference_answer: |
+          a·b = |a||b|cos θ: it measures how much a and b point in the same direction — the length of a's
+          projection onto b times the length of b. Orthogonal vectors meet at 90°, cos 90° = 0, so the product is 0
+          regardless of their lengths: a has no shadow along b.
+        common_misconceptions:
+          - "The dot product of orthogonal vectors is 1"
+          - "The dot product is a vector"
+          - "Orthogonal vectors give zero because their coordinates are zero"
+      explanation: "Geometrically a·b = |a||b|cos θ; at 90° the cosine is zero, so the projection of one vector onto the other has length zero."
+  - id: q4
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute the cosine similarity of $(1,0,1)$ and $(0,1,1)$."
+    objective_ids: [b01.m01.l01.o3]
+    hints: ["Dot product first, then divide by the product of the two lengths."]
+    grading:
+      numeric: {value: 0.5, abs_tol: 0.001, rel_tol: 0}
+      explanation: "Dot product = 1; each length = √2; 1/(√2·√2) = 1/2 (an angle of 60°)."
+  - id: q5
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      A search engine represents documents as word-count vectors. Document B is document A copied twice in a
+      row. Compare what Euclidean distance and cosine similarity say about A and B, and explain which is the
+      better measure of topical similarity here and why.
+    objective_ids: [b01.m01.l01.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "B's vector is 2×A's vector (same direction, twice the length)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Euclidean distance is large / nonzero (equal to |A|), so it calls them dissimilar"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Cosine similarity is exactly 1 because it depends only on direction (angle 0)"}
+          - {id: c4, points: 1, required_for_mastery: false, description: "Concludes cosine is better because length reflects document length, not topic"}
+        reference_answer: |
+          B = 2A. Euclidean distance |B − A| = |A| is large, suggesting they differ. Cosine similarity is 1 because
+          scaling a vector doesn't change its direction. Topic is carried by the proportions of words (direction),
+          while length mostly reflects document length, so cosine similarity is the better measure.
+        common_misconceptions: ["Cosine similarity of B and A is 2", "Scaling a vector changes its direction"]
+      explanation: "B = 2A has the same direction; cosine similarity ignores length, Euclidean distance doesn't."
+  - id: q6
+    type: mcq
+    category: recall
+    prompt: "A batch of 32 RGB images, each 64×64 pixels, stored channels-last, is a tensor of shape:"
+    objective_ids: [b01.m01.l01.o1]
+    options:
+      - {id: a, text: "(32, 64, 64, 3)"}
+      - {id: b, text: "(32, 4096)"}
+      - {id: c, text: "(64, 64, 3)"}
+      - {id: d, text: "(32, 3)"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Batch × height × width × channels."
+  - id: q7
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      A classmate says: *"The dot product of two unit vectors is always 1, because their lengths are both 1."*
+      Identify the error and correct it. What values can the dot product of two unit vectors take?
+    objective_ids: [b01.m01.l01.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Points out the claim ignores the cos θ factor / the angle between the vectors"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "For unit vectors a·b = cos θ"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Range is [−1, 1]: 1 when identical direction, 0 when orthogonal, −1 when opposite"}
+        reference_answer: "For unit vectors a·b = 1·1·cos θ = cos θ, which ranges over [−1, 1]; it equals 1 only when the vectors point the same way."
+        common_misconceptions: ["Dot product only depends on lengths"]
+      explanation: "With |a| = |b| = 1 the dot product equals cos θ ∈ [−1, 1]."
+  - id: c1
+    type: code
+    category: coding
+    critical: true
+    points: 5
+    prompt: |
+      Implement `dot(a, b)`, `l2_norm(a)` and `cosine_similarity(a, b)` for vectors given as Python lists of
+      numbers.
+
+      - `dot` must raise `ValueError` if the lengths differ.
+      - `cosine_similarity` must raise `ValueError` if either vector has zero length.
+    objective_ids: [b01.m01.l01.o2, b01.m01.l01.o3]
+    hints:
+      - "zip() pairs up coordinates."
+      - "The L2 norm can be written using dot()."
+    code:
+      starter_code: |
+        import math
+
+
+        def dot(a: list[float], b: list[float]) -> float:
+            """Return the dot product of a and b. Raise ValueError if lengths differ."""
+            raise NotImplementedError
+
+
+        def l2_norm(a: list[float]) -> float:
+            """Return the Euclidean (L2) length of a."""
+            raise NotImplementedError
+
+
+        def cosine_similarity(a: list[float], b: list[float]) -> float:
+            """Return cos(angle between a and b). Raise ValueError for zero vectors."""
+            raise NotImplementedError
+      required_functions: [dot, l2_norm, cosine_similarity]
+      allowed_imports: [math]
+      time_limit_seconds: 5
+      public_tests:
+        - name: test_dot_basic
+          code: |
+            def test_dot_basic():
+                assert dot([1, 2, 3], [4, 5, 6]) == 32
+        - name: test_cosine_parallel
+          code: |
+            def test_cosine_parallel():
+                assert abs(cosine_similarity([1, 2], [2, 4]) - 1.0) < 1e-9
+    grading:
+      code:
+        hidden_tests:
+          - name: test_norm_345
+            code: |
+              def test_norm_345():
+                  assert abs(l2_norm([3, 4]) - 5.0) < 1e-12
+          - name: test_dot_length_mismatch
+            code: |
+              def test_dot_length_mismatch():
+                  try:
+                      dot([1, 2], [1, 2, 3])
+                  except ValueError:
+                      return
+                  assert False, "expected ValueError"
+          - name: test_cosine_zero_vector
+            code: |
+              def test_cosine_zero_vector():
+                  try:
+                      cosine_similarity([0, 0], [1, 2])
+                  except ValueError:
+                      return
+                  assert False, "expected ValueError"
+          - name: test_cosine_opposite_and_orthogonal
+            code: |
+              def test_cosine_opposite_and_orthogonal():
+                  assert abs(cosine_similarity([1, -2], [-1, 2]) + 1.0) < 1e-9
+                  assert abs(cosine_similarity([3, 4], [-4, 3])) < 1e-12
+          - name: test_floats_high_dim
+            code: |
+              def test_floats_high_dim():
+                  a = [0.5] * 100
+                  b = [0.25] * 100
+                  assert abs(dot(a, b) - 12.5) < 1e-9
+                  assert abs(cosine_similarity(a, b) - 1.0) < 1e-9
+        forbidden_imports: [numpy, scipy, torch]
+        forbidden_calls: [math.dist, math.hypot]
+        reference_solution: |
+          import math
+
+          def dot(a, b):
+              if len(a) != len(b):
+                  raise ValueError("vectors must have the same length")
+              return sum(x * y for x, y in zip(a, b))
+
+          def l2_norm(a):
+              return math.sqrt(dot(a, a))
+
+          def cosine_similarity(a, b):
+              na, nb = l2_norm(a), l2_norm(b)
+              if na == 0 or nb == 0:
+                  raise ValueError("cosine similarity is undefined for zero vectors")
+              return dot(a, b) / (na * nb)
+        review_focus: ["Uses dot() to build the norm rather than duplicating logic", "Handles the zero-vector case explicitly"]
+      explanation: "dot is a sum of coordinate products; l2_norm is sqrt(dot(a, a)); cosine similarity divides by both norms."
+homework:
+  - "Show that |a + b|² = |a|² + 2 a·b + |b|². What does this become when a ⟂ b?"
+  - "Prove Cauchy–Schwarz for n = 2 directly from the algebraic definition."
+completion:
+  required_section_ids: [s1, s2, s3, s4, s5, s6, s7]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, q7, c1]
+  pass_threshold: 0.85
+variant_bank:
+  - id: v1
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      Without computing any angles, how can you tell from the dot product alone whether two nonzero vectors
+      point roughly the same way, are perpendicular, or point roughly opposite ways? Explain why this works.
+    objective_ids: [b01.m01.l01.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Positive → same general direction, zero → perpendicular/orthogonal, negative → opposite general direction"}
+          - {id: c2, points: 2, required_for_mastery: true, description: "Justifies via a·b = |a||b|cos θ with lengths positive, so the sign equals the sign of cos θ"}
+        reference_answer: "Since a·b = |a||b|cos θ and the lengths are positive, the sign of a·b is the sign of cos θ: positive for θ < 90°, zero at 90°, negative above 90°."
+        common_misconceptions: ["The size of the dot product alone tells you the angle"]
+      explanation: "Sign of a·b = sign of cos θ."
+  - id: v2
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute $(2,-1,0)\\cdot(1,2,5)$. What does the result tell you geometrically? (Enter the number.)"
+    objective_ids: [b01.m01.l01.o2]
+    grading:
+      numeric: {value: 0, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "2 − 2 + 0 = 0, so the vectors are orthogonal."
+  - id: v3
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute the cosine similarity of $(1,1)$ and $(1,0)$ to 3 decimal places."
+    objective_ids: [b01.m01.l01.o3]
+    grading:
+      numeric: {value: 0.70711, abs_tol: 0.001, rel_tol: 0}
+      explanation: "1/(√2·1) ≈ 0.707, i.e. 45°."
+  - id: v4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      Two user-preference vectors have Euclidean distance 0.1 but cosine similarity −0.2. How is that possible,
+      and which number would you trust for "do these users like the same things"?
+    objective_ids: [b01.m01.l01.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Both vectors are short (small norms), so they are close in distance even though directions differ"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Negative cosine means directions point more than 90° apart / preferences disagree"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Trusts cosine for taste similarity because it ignores magnitude (e.g. activity level)"}
+        reference_answer: "Both vectors are near the origin, so their distance is tiny regardless of direction; cosine −0.2 says their directions disagree. For shared taste, direction (cosine) is the meaningful quantity."
+        common_misconceptions: ["Small distance implies same direction"]
+      explanation: "Distance mixes magnitude and direction; cosine isolates direction."

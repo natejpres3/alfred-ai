@@ -1,0 +1,267 @@
+key: gd_linreg
+title: "Project: Linear regression trainer from scratch"
+pass_threshold: 0.9
+summary: |
+  Build a small, tested linear-regression library in NumPy: preprocessing, loss and gradients with a gradient
+  check, a full-batch and minibatch training loop, and evaluation. No closed-form solvers, no ML libraries.
+  You submit one file; each milestone adds functions to it. Your score is the mean of your best score on each
+  milestone, and **every milestone must reach 90%** to pass the module gate.
+milestones:
+  - key: m1
+    title: Data preparation and prediction
+    description: |
+      Implement `standardize(X)` returning `(X_std, mean, std)` where each column of `X_std` has mean 0 and
+      standard deviation 1 (use the population std, `ddof=0`). Columns with zero variance must be left
+      centered but not divided (treat their std as 1). Also implement `predict(X, w, b)`.
+    starter_code: |
+      import numpy as np
+
+
+      def standardize(X: np.ndarray):
+          """Return (X_std, mean, std). Zero-variance columns: std treated as 1."""
+          raise NotImplementedError
+
+
+      def predict(X: np.ndarray, w: np.ndarray, b: float) -> np.ndarray:
+          raise NotImplementedError
+    required_functions: [standardize, predict]
+    public_tests:
+      - name: test_standardize_basic
+        code: |
+          def test_standardize_basic():
+              import numpy as np
+              X = np.array([[1.0, 10.0], [3.0, 30.0]])
+              Xs, mu, sd = standardize(X)
+              assert np.allclose(mu, [2.0, 20.0]) and np.allclose(sd, [1.0, 10.0])
+              assert np.allclose(Xs, [[-1, -1], [1, 1]])
+    hidden_tests:
+      - name: test_zero_variance
+        code: |
+          def test_zero_variance():
+              import numpy as np
+              X = np.array([[1.0, 5.0], [3.0, 5.0], [5.0, 5.0]])
+              Xs, mu, sd = standardize(X)
+              assert np.all(np.isfinite(Xs)) and np.allclose(Xs[:, 1], 0.0) and sd[1] == 1.0
+      - name: test_no_mutation
+        code: |
+          def test_no_mutation():
+              import numpy as np
+              X = np.array([[1.0, 2.0], [3.0, 4.0]])
+              X0 = X.copy()
+              standardize(X)
+              assert np.array_equal(X, X0)
+      - name: test_predict
+        code: |
+          def test_predict():
+              import numpy as np
+              assert np.allclose(predict(np.array([[1.0, 2.0], [0.0, -1.0]]), np.array([3.0, 1.0]), 0.5), [5.5, -0.5])
+      - name: test_moments
+        code: |
+          def test_moments():
+              import numpy as np
+              rng = np.random.default_rng(3)
+              Xs, _, _ = standardize(rng.normal(5, 7, size=(500, 4)))
+              assert np.allclose(Xs.mean(0), 0, atol=1e-10) and np.allclose(Xs.std(0), 1, atol=1e-10)
+    forbidden_imports: [sklearn, scipy, torch, pandas]
+    forbidden_calls: []
+    reference_solution: |
+      import numpy as np
+
+      def standardize(X):
+          mu = X.mean(axis=0)
+          sd = X.std(axis=0)
+          sd = np.where(sd == 0, 1.0, sd)
+          return (X - mu) / sd, mu, sd
+
+      def predict(X, w, b):
+          return X @ w + b
+    review_focus: ["Vectorized column statistics", "Zero-variance handling"]
+  - key: m2
+    title: Loss, gradient, and gradient check
+    description: |
+      Add `mse_and_grad(X, y, w, b)` → `(loss, grad_w, grad_b)` and `grad_check(X, y, w, b, h=1e-6)` → max
+      relative error between analytic and central-difference gradients (over all of w and b). Keep your
+      milestone-1 functions in the file.
+    starter_code: |
+      def mse_and_grad(X, y, w, b):
+          raise NotImplementedError
+
+
+      def grad_check(X, y, w, b, h=1e-6) -> float:
+          raise NotImplementedError
+    required_functions: [standardize, predict, mse_and_grad, grad_check]
+    public_tests:
+      - name: test_tiny
+        code: |
+          def test_tiny():
+              import numpy as np
+              loss, gw, gb = mse_and_grad(np.array([[1.0], [2.0]]), np.array([2.0, 4.0]), np.zeros(1), 0.0)
+              assert abs(loss - 10) < 1e-12 and abs(gw[0] + 10) < 1e-12 and abs(gb + 6) < 1e-12
+    hidden_tests:
+      - name: test_check_random
+        weight: 2
+        code: |
+          def test_check_random():
+              import numpy as np
+              rng = np.random.default_rng(7)
+              X, y = rng.normal(size=(50, 6)), rng.normal(size=50)
+              assert grad_check(X, y, rng.normal(size=6), -0.4) < 1e-5
+      - name: test_grad_matches_formula
+        code: |
+          def test_grad_matches_formula():
+              import numpy as np
+              rng = np.random.default_rng(8)
+              X, y, w = rng.normal(size=(20, 3)), rng.normal(size=20), rng.normal(size=3)
+              r = X @ w + 0.2 - y
+              _, gw, gb = mse_and_grad(X, y, w, 0.2)
+              assert np.allclose(gw, 2 / 20 * X.T @ r) and abs(gb - 2 / 20 * r.sum()) < 1e-12
+    forbidden_imports: [sklearn, scipy, torch, pandas, jax, autograd]
+    forbidden_calls: []
+    reference_solution: |
+      import numpy as np
+
+      def standardize(X):
+          mu = X.mean(axis=0); sd = X.std(axis=0); sd = np.where(sd == 0, 1.0, sd)
+          return (X - mu) / sd, mu, sd
+
+      def predict(X, w, b):
+          return X @ w + b
+
+      def mse_and_grad(X, y, w, b):
+          r = X @ w + b - y
+          n = len(y)
+          return float(r @ r / n), 2 / n * (X.T @ r), float(2 / n * r.sum())
+
+      def grad_check(X, y, w, b, h=1e-6):
+          _, gw, gb = mse_and_grad(X, y, w, b)
+          errs = []
+          for j in range(len(w)):
+              wp, wm = w.copy(), w.copy(); wp[j] += h; wm[j] -= h
+              num = (mse_and_grad(X, y, wp, b)[0] - mse_and_grad(X, y, wm, b)[0]) / (2 * h)
+              errs.append(abs(num - gw[j]) / max(abs(num), abs(gw[j]), 1e-12))
+          nb = (mse_and_grad(X, y, w, b + h)[0] - mse_and_grad(X, y, w, b - h)[0]) / (2 * h)
+          errs.append(abs(nb - gb) / max(abs(nb), abs(gb), 1e-12))
+          return max(errs)
+    review_focus: ["Vectorized gradient", "Relative error with a floor in the denominator"]
+  - key: m3
+    title: Training loop, minibatches and evaluation
+    description: |
+      Add `train(X, y, lr=0.1, epochs=200, batch_size=None, seed=0)` → `(w, b, history)`:
+      full-batch gradient descent when `batch_size` is None, otherwise minibatch gradient descent that reshuffles
+      the data each epoch with `np.random.default_rng(seed)`. `history` holds the **full-dataset** loss at the
+      start of each epoch. Raise `ArithmeticError` if the loss becomes non-finite. Add `r2_score(y, y_hat)`.
+      Your trainer must reach R² > 0.95 on held-out data generated by a hidden linear process with noise, using
+      standardized features.
+    starter_code: |
+      def train(X, y, lr=0.1, epochs=200, batch_size=None, seed=0):
+          raise NotImplementedError
+
+
+      def r2_score(y, y_hat) -> float:
+          raise NotImplementedError
+    required_functions: [standardize, predict, mse_and_grad, grad_check, train, r2_score]
+    public_tests:
+      - name: test_r2_perfect
+        code: |
+          def test_r2_perfect():
+              import numpy as np
+              y = np.array([1.0, 2.0, 3.0])
+              assert abs(r2_score(y, y) - 1.0) < 1e-12 and abs(r2_score(y, np.full(3, 2.0))) < 1e-12
+    hidden_tests:
+      - name: test_full_batch_fit
+        weight: 2
+        code: |
+          def test_full_batch_fit():
+              import numpy as np
+              rng = np.random.default_rng(11)
+              X = rng.normal(size=(400, 5)) * np.array([1, 10, 100, 0.1, 3])
+              w_true = rng.normal(size=5)
+              y = X @ w_true + 2.0 + 0.1 * rng.normal(size=400)
+              Xs, mu, sd = standardize(X[:300])
+              w, b, hist = train(Xs, y[:300], lr=0.1, epochs=300)
+              Xt = (X[300:] - mu) / sd
+              assert r2_score(y[300:], predict(Xt, w, b)) > 0.95
+              assert len(hist) == 300 and hist[-1] < hist[0]
+      - name: test_minibatch_fit
+        weight: 2
+        code: |
+          def test_minibatch_fit():
+              import numpy as np
+              rng = np.random.default_rng(12)
+              X = rng.normal(size=(512, 3))
+              y = X @ np.array([1.5, -2.0, 0.7]) - 1.0
+              w, b, hist = train(X, y, lr=0.05, epochs=100, batch_size=32, seed=1)
+              assert np.allclose(w, [1.5, -2.0, 0.7], atol=1e-2) and abs(b + 1.0) < 1e-2
+      - name: test_deterministic_seed
+        code: |
+          def test_deterministic_seed():
+              import numpy as np
+              rng = np.random.default_rng(13)
+              X, y = rng.normal(size=(64, 2)), rng.normal(size=64)
+              a = train(X, y, lr=0.05, epochs=5, batch_size=8, seed=4)
+              b = train(X, y, lr=0.05, epochs=5, batch_size=8, seed=4)
+              assert np.allclose(a[0], b[0]) and a[1] == b[1]
+      - name: test_divergence_raises
+        code: |
+          def test_divergence_raises():
+              import numpy as np
+              X = np.random.default_rng(14).normal(size=(50, 2)) * 100
+              y = X.sum(1)
+              try:
+                  train(X, y, lr=1.0, epochs=500)
+              except ArithmeticError:
+                  return
+              assert False, "expected ArithmeticError"
+    forbidden_imports: [sklearn, scipy, torch, pandas, jax, autograd]
+    forbidden_calls: [np.linalg.lstsq, np.linalg.solve, np.linalg.inv, np.linalg.pinv, numpy.linalg.lstsq, numpy.linalg.solve, numpy.linalg.inv, numpy.linalg.pinv, np.polyfit]
+    reference_solution: |
+      import numpy as np
+
+      def standardize(X):
+          mu = X.mean(axis=0); sd = X.std(axis=0); sd = np.where(sd == 0, 1.0, sd)
+          return (X - mu) / sd, mu, sd
+
+      def predict(X, w, b):
+          return X @ w + b
+
+      def mse_and_grad(X, y, w, b):
+          r = X @ w + b - y
+          n = len(y)
+          return float(r @ r / n), 2 / n * (X.T @ r), float(2 / n * r.sum())
+
+      def grad_check(X, y, w, b, h=1e-6):
+          _, gw, gb = mse_and_grad(X, y, w, b)
+          errs = []
+          for j in range(len(w)):
+              wp, wm = w.copy(), w.copy(); wp[j] += h; wm[j] -= h
+              num = (mse_and_grad(X, y, wp, b)[0] - mse_and_grad(X, y, wm, b)[0]) / (2 * h)
+              errs.append(abs(num - gw[j]) / max(abs(num), abs(gw[j]), 1e-12))
+          nb = (mse_and_grad(X, y, w, b + h)[0] - mse_and_grad(X, y, w, b - h)[0]) / (2 * h)
+          errs.append(abs(nb - gb) / max(abs(nb), abs(gb), 1e-12))
+          return max(errs)
+
+      def train(X, y, lr=0.1, epochs=200, batch_size=None, seed=0):
+          rng = np.random.default_rng(seed)
+          w, b, hist = np.zeros(X.shape[1]), 0.0, []
+          n = len(y)
+          for _ in range(epochs):
+              loss = mse_and_grad(X, y, w, b)[0]
+              if not np.isfinite(loss):
+                  raise ArithmeticError("diverged")
+              hist.append(loss)
+              if batch_size is None:
+                  _, gw, gb = mse_and_grad(X, y, w, b)
+                  w, b = w - lr * gw, b - lr * gb
+              else:
+                  idx = rng.permutation(n)
+                  for s in range(0, n, batch_size):
+                      j = idx[s:s + batch_size]
+                      _, gw, gb = mse_and_grad(X[j], y[j], w, b)
+                      w, b = w - lr * gw, b - lr * gb
+          return w, b, hist
+
+      def r2_score(y, y_hat):
+          ss_res = float(((y - y_hat) ** 2).sum())
+          ss_tot = float(((y - y.mean()) ** 2).sum())
+          return 1.0 - ss_res / ss_tot
+    review_focus: ["Iterative optimization only (no closed form)", "Correct per-epoch reshuffling", "Divergence detection", "History semantics"]

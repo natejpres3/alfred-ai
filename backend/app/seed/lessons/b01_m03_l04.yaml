@@ -1,0 +1,462 @@
+lesson_key: b01.m03.l04
+title: Gradient descent and optimization
+subtitle: Learning is walking downhill on a loss surface
+summary: >-
+  Gradient descent repeatedly steps opposite the gradient: θ ← θ − η∇L(θ). It follows directly from the
+  first-order Taylor approximation. The learning rate η controls everything: too small is slow, too large
+  oscillates or diverges, and the threshold is set by the curvature of the loss.
+why_it_matters: >-
+  Essentially every neural network — including every large language model — is trained by a variant of gradient
+  descent (SGD, momentum, Adam). Understanding why it works and how it fails is what lets you debug training runs
+  instead of guessing hyperparameters.
+explanation_strategy: derive-from-taylor then analyze the 1-D quadratic exactly
+estimated_minutes: 60
+prerequisites: [calc.partial_gradients, la.norms, calc.derivatives]
+objectives:
+  - {id: b01.m03.l04.o1, concept_key: opt.gradient_descent, critical: true, bloom: apply, statement: "Derive the gradient descent update from the first-order Taylor approximation and perform updates by hand"}
+  - {id: b01.m03.l04.o2, concept_key: opt.learning_rate, critical: true, bloom: analyze, statement: "Explain how the learning rate affects convergence, oscillation and divergence"}
+  - {id: b01.m03.l04.o3, concept_key: opt.gradient_descent, critical: false, bloom: understand, statement: "Describe local minima, saddle points and stopping criteria"}
+connections:
+  - {concept_key: calc.partial_gradients, direction: builds_on, note: "−∇L is the direction of steepest descent."}
+  - {concept_key: opt.sgd, direction: leads_to, note: "Stochastic gradient descent replaces ∇L with a cheap, noisy estimate."}
+  - {concept_key: calc.taylor, direction: leads_to, note: "Second-order Taylor (the Hessian) explains the learning-rate limit in many dimensions."}
+resources:
+  - id: r-3b1b-gd
+    kind: video
+    title: "Gradient descent, how neural networks learn | Deep Learning Chapter 2"
+    url: https://www.youtube.com/watch?v=IHZwWFHWa-w
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~20 min)"
+    why: Gradient descent in the context of a real network.
+    required: false
+  - id: r-cs231n-opt
+    kind: course
+    title: "CS231n: Optimization — Stochastic Gradient Descent (course notes)"
+    url: https://cs231n.github.io/optimization-1/
+    publisher: Stanford University
+    details: "Sections: loss landscapes, gradient descent"
+    why: Clear notes from Stanford's deep learning course.
+    required: false
+  - id: r-distill-momentum
+    kind: article
+    title: Why Momentum Really Works
+    url: https://distill.pub/2017/momentum/
+    authors: [Gabriel Goh]
+    publisher: Distill
+    details: "First half (gradient descent on quadratics)"
+    why: Interactive analysis of step sizes and ill-conditioning — a deep dive beyond this lesson.
+    required: false
+  - id: r-ruder
+    kind: paper
+    title: An overview of gradient descent optimization algorithms
+    url: https://arxiv.org/abs/1609.04747
+    authors: [Sebastian Ruder]
+    publisher: arXiv
+    details: "Sections 1–3"
+    why: Survey of the variants you'll meet in Block 5.
+    required: false
+sections:
+  - id: s1
+    kind: retrieval
+    title: Warm-up
+    estimated_minutes: 4
+    blocks:
+      - {type: question, question_id: w1}
+      - {type: question, question_id: w2}
+  - id: s2
+    kind: concept
+    title: Why walk downhill?
+    estimated_minutes: 8
+    blocks:
+      - type: markdown
+        text: |
+          Training a model means finding parameters $\boldsymbol\theta$ that minimize a loss $L(\boldsymbol\theta)$.
+          For a few models (like ordinary least squares) you can solve $\nabla L=0$ in closed form. For neural
+          networks you can't: the equations are nonlinear, and with billions of parameters even linear solves are
+          too expensive. What you *can* compute cheaply is the gradient at the current point.
+
+          The gradient tells you the uphill direction. So: **take a small step downhill, recompute, repeat.**
+      - type: callout
+        variant: history
+        title: An idea from 1847
+        text: |
+          Augustin-Louis Cauchy proposed the method of steepest descent in 1847 for solving systems of equations
+          arising in astronomy. Robbins and Monro (1951) showed that you can use *noisy* gradient estimates and
+          still converge — the foundation of stochastic gradient descent, which trains today's LLMs.
+  - id: s3
+    kind: math
+    title: Deriving the update and analyzing the step size
+    estimated_minutes: 15
+    blocks:
+      - type: markdown
+        text: |
+          **Derivation.** From the first-order Taylor approximation (last lesson), for a small step $\boldsymbol\Delta$:
+      - type: equation
+        latex: "L(\\boldsymbol\\theta+\\boldsymbol\\Delta)\\approx L(\\boldsymbol\\theta)+\\nabla L(\\boldsymbol\\theta)\\cdot\\boldsymbol\\Delta"
+      - type: markdown
+        text: |
+          To decrease $L$ we want $\nabla L\cdot\boldsymbol\Delta<0$, and among steps of a fixed length the most
+          negative dot product is in the direction $-\nabla L$. Choosing $\boldsymbol\Delta=-\eta\nabla L$ with a
+          **learning rate** $\eta>0$ gives a predicted change of $-\eta\|\nabla L\|^2\le 0$. Hence the update:
+      - type: equation
+        latex: "\\boldsymbol\\theta_{t+1}=\\boldsymbol\\theta_t-\\eta\\,\\nabla L(\\boldsymbol\\theta_t)"
+      - type: markdown
+        text: |
+          The approximation is only valid for small steps, which is why $\eta$ matters.
+
+          **Worked example.** $L(w)=(w-3)^2$, so $L'(w)=2(w-3)$. Start at $w_0=0$ with $\eta=0.1$:
+          $w_1=0-0.1\cdot(-6)=0.6$; $w_2=0.6-0.1\cdot 2(0.6-3)=0.6+0.48=1.08$. Each step closes 20% of the
+          remaining gap to the minimum at 3.
+
+          **The learning rate, exactly.** Take $L(w)=\tfrac{a}{2}w^2$ with curvature $a>0$ (minimum at 0). Then
+          $L'(w)=aw$ and the update is
+      - type: equation
+        latex: "w_{t+1}=w_t-\\eta a w_t=(1-\\eta a)\\,w_t \\quad\\Longrightarrow\\quad w_t=(1-\\eta a)^t\\,w_0"
+      - type: markdown
+        text: |
+          Everything depends on the factor $r=1-\eta a$:
+
+          | learning rate | factor $r$ | behaviour |
+          |---|---|---|
+          | $0<\eta<1/a$ | $0<r<1$ | smooth, monotone convergence (slow if $\eta$ tiny) |
+          | $\eta=1/a$ | $r=0$ | jumps to the minimum in one step |
+          | $1/a<\eta<2/a$ | $-1<r<0$ | **oscillates** across the minimum but converges |
+          | $\eta=2/a$ | $r=-1$ | bounces forever between $\pm w_0$ |
+          | $\eta>2/a$ | $r<-1$ | **diverges**: $|w_t|$ grows exponentially |
+
+          So convergence requires $\eta<2/a$: **sharper curvature forces a smaller learning rate.** In many
+          dimensions, the curvature differs by direction; the *largest* curvature sets the limit on $\eta$, while
+          the *smallest* curvature sets how slowly you progress. A long, narrow valley therefore produces the
+          classic zig-zag — the motivation for momentum and Adam in Block 5.
+
+          **Stationary points are not always minima.** $\nabla L=0$ at minima, maxima and **saddle points**
+          ($f(x,y)=x^2-y^2$ at the origin: a minimum along $x$, a maximum along $y$). In high-dimensional
+          neural-network losses, saddle points and flat plateaus are far more common obstacles than bad local
+          minima.
+
+          **When to stop.** Common criteria: gradient norm below a tolerance $\|\nabla L\|<\varepsilon$; loss
+          improvement below a tolerance; a fixed budget of steps; or (for ML) validation loss that stops improving
+          (early stopping).
+  - id: s4
+    kind: demo
+    title: Explore a loss surface
+    estimated_minutes: 9
+    blocks:
+      - type: interactive
+        widget: gradient_descent_2d
+        params: [{name: a, value: 1}, {name: b, value: 10}, {name: lr, value: 0.05}, {name: x0, value: -4}, {name: y0, value: 2}]
+        caption: "Gradient descent on L(x, y) = ½(a·x² + b·y²). Contours are lines of equal loss."
+        instructions: |
+          1. Increase the learning rate slowly. At what value does the path start oscillating in y? When does it diverge? Compare with 1/b and 2/b.
+          2. Keep the learning rate just below 2/b and look at progress along x. Why is it so slow?
+          3. Set a = b. What happens to the zig-zag?
+      - type: resource
+        resource_id: r-3b1b-gd
+        note: Optional — gradient descent on a real network's loss.
+  - id: s5
+    kind: recall
+    title: Active recall
+    estimated_minutes: 13
+    blocks:
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+      - {type: question, question_id: q7}
+  - id: s6
+    kind: coding
+    title: A general-purpose optimizer
+    estimated_minutes: 8
+    blocks:
+      - type: markdown
+        text: "Implement gradient descent with a stopping criterion. Tomorrow you'll use it to fit a model to data."
+      - {type: question, question_id: c1}
+  - id: s7
+    kind: summary
+    title: Summary
+    estimated_minutes: 3
+    blocks:
+      - type: markdown
+        text: |
+          - Update: $\boldsymbol\theta\leftarrow\boldsymbol\theta-\eta\nabla L$, derived from the first-order Taylor approximation.
+          - On a quadratic with curvature $a$: converge iff $0<\eta<2/a$; oscillate if $\eta>1/a$; diverge if $\eta>2/a$.
+          - Stationary points include saddles; stop on small gradient, small improvement, budget, or validation loss.
+
+          **Next:** implement it end-to-end for linear regression and check your gradients numerically.
+questions:
+  - id: w1
+    type: mcq
+    category: recall
+    required: false
+    prompt: "The direction in which a differentiable function decreases fastest is:"
+    objective_ids: [b01.m03.l04.o1]
+    options:
+      - {id: a, text: "−∇f"}
+      - {id: b, text: "∇f"}
+      - {id: c, text: "any direction perpendicular to ∇f"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "D_u f = |∇f| cos θ is most negative at θ = 180°."
+  - id: w2
+    type: numeric
+    category: recall
+    required: false
+    prompt: "For $L(w)=(w-3)^2$, compute $L'(0)$."
+    objective_ids: [b01.m03.l04.o1]
+    grading:
+      numeric: {value: -6, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "2(0 − 3) = −6."
+  - id: q1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Run two steps of gradient descent on $L(w)=(w-3)^2$ from $w_0=0$ with $\\eta=0.1$. What is $w_2$?"
+    objective_ids: [b01.m03.l04.o1]
+    hints: ["w₁ = w₀ − η·2(w₀ − 3)."]
+    grading:
+      numeric: {value: 1.08, abs_tol: 0.0001, rel_tol: 0}
+      explanation: "w₁ = 0.6, w₂ = 0.6 − 0.1·2·(−2.4) = 1.08."
+  - id: q2
+    type: derivation
+    category: math
+    critical: true
+    points: 4
+    prompt: |
+      Starting from the first-order Taylor approximation of $L$ around $\boldsymbol\theta$, derive the gradient
+      descent update rule, and show that for a small enough learning rate it decreases the loss (to first order).
+    objective_ids: [b01.m03.l04.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Writes L(θ + Δ) ≈ L(θ) + ∇L(θ)·Δ"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Chooses Δ = −η∇L (direction of steepest decrease)"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Shows the predicted change is −η|∇L|² ≤ 0"}
+          - {id: c4, points: 1, required_for_mastery: false, description: "Notes the approximation only holds for small steps, hence small η"}
+        reference_answer: "L(θ+Δ) ≈ L(θ) + ∇L·Δ. Choosing Δ = −η∇L gives L(θ+Δ) ≈ L(θ) − η|∇L|², a decrease whenever ∇L ≠ 0; it is valid only for small η, where the linear approximation is accurate."
+        common_misconceptions: ["Stepping along +∇L", "Believing any η decreases the loss"]
+      explanation: "Taylor + steepest-descent direction gives θ − η∇L with first-order change −η|∇L|²."
+  - id: q3
+    type: mcq
+    category: math
+    critical: true
+    prompt: "Gradient descent on $L(w)=2w^2$ from $w_0=1$ with $\\eta=0.6$ will:"
+    objective_ids: [b01.m03.l04.o2]
+    hints: ["Write L in the form (a/2)w². What is a?"]
+    options:
+      - {id: a, text: "diverge, with |w| growing and its sign flipping"}
+      - {id: b, text: "converge monotonically"}
+      - {id: c, text: "converge while oscillating"}
+      - {id: d, text: "reach the minimum in one step"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "a = 4, factor 1 − 0.6·4 = −1.4: |r| > 1 with a negative sign — oscillating divergence (η > 2/a = 0.5)."
+  - id: q4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Explain what happens to gradient descent when the learning rate is (a) very small, (b) moderately large,
+      (c) too large. Justify using the update $w_{t+1}=(1-\eta a)w_t$ for $L=\tfrac a2 w^2$.
+    objective_ids: [b01.m03.l04.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Very small η: factor close to 1, converges but slowly"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Between 1/a and 2/a: factor negative with magnitude < 1, oscillates around the minimum but converges"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "Above 2/a: |1 − ηa| > 1, diverges (grows exponentially)"}
+          - {id: c4, points: 1, required_for_mastery: false, description: "Connects the threshold to curvature: larger a requires smaller η"}
+        reference_answer: "w_t = (1−ηa)^t w₀. Tiny η: r ≈ 1, slow convergence. 1/a < η < 2/a: −1 < r < 0, sign flips each step but shrinks — oscillating convergence. η > 2/a: |r| > 1, divergence. Sharper curvature (larger a) lowers the allowed η."
+        common_misconceptions: ["A larger learning rate is always faster", "Oscillation always means divergence"]
+      explanation: "Everything depends on |1 − ηa| relative to 1."
+  - id: q5
+    type: numeric
+    category: math
+    critical: true
+    prompt: "For $L(w)=5w^2$, what is the threshold learning rate above which gradient descent diverges?"
+    objective_ids: [b01.m03.l04.o2]
+    grading:
+      numeric: {value: 0.2, abs_tol: 0.0001, rel_tol: 0}
+      explanation: "5w² = (10/2)w², so a = 10 and the threshold is 2/a = 0.2."
+  - id: q6
+    type: short_answer
+    category: conceptual
+    points: 3
+    prompt: |
+      The gradient of a loss is zero at some point. Must that point be a minimum? Give a concrete counterexample
+      and name it. Then list two practical stopping criteria for gradient descent.
+    objective_ids: [b01.m03.l04.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "No — it could be a maximum or a saddle point"}
+          - {id: c2, points: 1, required_for_mastery: false, description: "Concrete counterexample, e.g. f(x,y) = x² − y² at the origin (saddle) or −x² at 0 (maximum)"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Two valid stopping criteria (gradient norm below tolerance, loss change below tolerance, max iterations, validation early stopping)"}
+        reference_answer: "No. f(x,y) = x² − y² has zero gradient at the origin, which is a saddle point. Stop when |∇L| < ε, when the loss stops improving, after a fixed number of steps, or when validation loss stops improving."
+        common_misconceptions: ["Zero gradient implies global minimum"]
+      explanation: "Stationary points include saddles and maxima."
+  - id: q7
+    type: mcq
+    category: conceptual
+    prompt: "Why do we train neural networks iteratively instead of solving $\\nabla L(\\boldsymbol\\theta)=0$ directly?"
+    objective_ids: [b01.m03.l04.o3]
+    options:
+      - {id: a, text: "The equations are nonlinear with no closed-form solution, and the problem is huge"}
+      - {id: b, text: "∇L = 0 has no solutions for neural networks"}
+      - {id: c, text: "Gradient descent always finds the global minimum"}
+      - {id: d, text: "Computing the gradient is impossible"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "Iterative methods only need gradients at the current point."
+  - id: c1
+    type: code
+    category: coding
+    critical: true
+    points: 5
+    prompt: |
+      Implement `minimize(grad, x0, lr, tol=1e-8, max_steps=10_000)`:
+
+      - `grad(x)` returns the gradient (a list) at point `x` (a list).
+      - Repeatedly apply $x\leftarrow x-\eta\,\nabla L(x)$.
+      - Stop when the **L2 norm of the gradient** is below `tol` or after `max_steps` updates.
+      - Return `(x, steps, path)` where `path` is the list of all visited points, starting with a copy of `x0`.
+      - Do not mutate `x0`. If any coordinate becomes non-finite (inf/nan), raise `ArithmeticError("diverged")`.
+    objective_ids: [b01.m03.l04.o1, b01.m03.l04.o2]
+    hints: ["math.isfinite helps detect divergence.", "Check the stopping condition before each update."]
+    code:
+      starter_code: |
+        import math
+        from typing import Callable
+
+
+        def minimize(
+            grad: Callable[[list[float]], list[float]],
+            x0: list[float],
+            lr: float,
+            tol: float = 1e-8,
+            max_steps: int = 10_000,
+        ) -> tuple[list[float], int, list[list[float]]]:
+            raise NotImplementedError
+      required_functions: [minimize]
+      allowed_imports: [math, typing]
+      time_limit_seconds: 10
+      public_tests:
+        - name: test_quadratic_1d
+          code: |
+            def test_quadratic_1d():
+                x, steps, path = minimize(lambda v: [2 * (v[0] - 3)], [0.0], lr=0.1)
+                assert abs(x[0] - 3) < 1e-6
+                assert path[0] == [0.0] and abs(path[2][0] - 1.08) < 1e-9
+    grading:
+      code:
+        hidden_tests:
+          - name: test_stops_on_tolerance
+            code: |
+              def test_stops_on_tolerance():
+                  x, steps, path = minimize(lambda v: [2 * v[0]], [1.0], lr=0.5, tol=1e-12)
+                  # lr = 1/a jumps to the minimum in one step, then the gradient is zero
+                  assert steps == 1 and x == [0.0] and len(path) == 2
+          - name: test_max_steps
+            code: |
+              def test_max_steps():
+                  x, steps, path = minimize(lambda v: [2 * v[0]], [1.0], lr=1e-4, tol=1e-12, max_steps=5)
+                  assert steps == 5 and len(path) == 6
+          - name: test_diverges
+            code: |
+              def test_diverges():
+                  try:
+                      minimize(lambda v: [10 * v[0]], [1.0], lr=0.5, max_steps=100_000)
+                  except ArithmeticError:
+                      return
+                  assert False, "expected ArithmeticError on divergence"
+          - name: test_2d_and_no_mutation
+            code: |
+              def test_2d_and_no_mutation():
+                  x0 = [-4.0, 2.0]
+                  g = lambda v: [1.0 * v[0], 10.0 * v[1]]
+                  x, steps, path = minimize(g, x0, lr=0.15, tol=1e-9)
+                  assert x0 == [-4.0, 2.0]
+                  assert abs(x[0]) < 1e-8 and abs(x[1]) < 1e-8
+                  assert path[0] is not x0
+        forbidden_imports: [numpy, scipy, torch]
+        reference_solution: |
+          import math
+
+          def minimize(grad, x0, lr, tol=1e-8, max_steps=10_000):
+              x = list(x0)
+              path = [list(x)]
+              steps = 0
+              while steps < max_steps:
+                  g = grad(x)
+                  if math.sqrt(sum(t * t for t in g)) < tol:
+                      break
+                  x = [xi - lr * gi for xi, gi in zip(x, g)]
+                  if not all(math.isfinite(xi) for xi in x):
+                      raise ArithmeticError("diverged")
+                  path.append(list(x))
+                  steps += 1
+              return x, steps, path
+        review_focus: ["Correct stopping order (check gradient before updating)", "Divergence detection", "No aliasing of x0 into path"]
+      explanation: "Loop: compute gradient, check norm, update, record, detect non-finite values."
+homework:
+  - "For L(x, y) = ½(x² + 10y²), what is the largest learning rate that converges? How many steps does it take to reduce x by a factor of 1000 at that rate?"
+completion:
+  required_section_ids: [s1, s2, s3, s4, s5, s6, s7]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, q7, c1]
+  pass_threshold: 0.85
+variant_bank:
+  - id: v1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "One step of gradient descent on $L(w)=w^2$ from $w_0=4$ with $\\eta=0.25$. What is $w_1$?"
+    objective_ids: [b01.m03.l04.o1]
+    grading:
+      numeric: {value: 2, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "4 − 0.25·8 = 2."
+  - id: v2
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: "Why is there a minus sign in $\\theta \\leftarrow \\theta - \\eta\\nabla L$? What would happen with a plus sign, and why?"
+    objective_ids: [b01.m03.l04.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "The gradient points in the direction of steepest increase of L"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Subtracting it moves in the direction of steepest decrease, lowering the loss"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "A plus sign would increase the loss (gradient ascent)"}
+        reference_answer: "∇L points uphill; −∇L points downhill, so subtracting decreases L (first-order change −η|∇L|²). A plus sign performs gradient ascent and increases the loss."
+        common_misconceptions: []
+      explanation: "Descent vs ascent."
+  - id: v3
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Gradient descent on $L(w)=(w-1)^2$ from $w_0=0$ with $\\eta=0.75$. What is $w_1$?"
+    objective_ids: [b01.m03.l04.o2]
+    grading:
+      numeric: {value: 1.5, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "0 − 0.75·2·(−1) = 1.5: it overshoots the minimum at 1 (η = 0.75 is between 1/a = 0.5 and 2/a = 1, so it oscillates but converges)."
+  - id: v4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      Your training loss goes 2.3, 1.9, 2.6, 4.8, 11.2, … What is the most likely cause, what would you change,
+      and why does that fix it?
+    objective_ids: [b01.m03.l04.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Diagnoses a learning rate that is too large (divergence)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Recommends reducing the learning rate"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Explains: steps overshoot beyond the region where the linear approximation holds / exceed the 2/curvature limit, so each step increases the loss"}
+        reference_answer: "The loss is growing exponentially: the learning rate exceeds the stability limit (about 2/curvature), so each step overshoots and lands higher. Reduce the learning rate."
+        common_misconceptions: ["Train longer", "Increase the learning rate to escape"]
+      explanation: "Divergence → lower η."

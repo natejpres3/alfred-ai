@@ -1,0 +1,124 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #fbfaf7;
+  --foreground: #1c1b19;
+  --card: #ffffff;
+  --muted: #f1efe9;
+  --muted-foreground: #6b6860;
+  --border: #e3e0d8;
+  --primary: #1f4f8f;
+  --primary-foreground: #ffffff;
+  --accent: #e8eef7;
+  --success: #2f7d4f;
+  --success-soft: #e6f2ea;
+  --warning: #9a6408;
+  --warning-soft: #fbf1dc;
+  --danger: #b3362f;
+  --danger-soft: #f8e5e3;
+  --ring: #1f4f8f55;
+  --vec-a: #c2410c;
+  --vec-b: #1d4ed8;
+  --plot-grid: #e7e4dc;
+}
+
+.dark {
+  --background: #121212;
+  --foreground: #ebe8e1;
+  --card: #1a1a19;
+  --muted: #222220;
+  --muted-foreground: #9c988e;
+  --border: #302f2b;
+  --primary: #7fa8e0;
+  --primary-foreground: #0d1622;
+  --accent: #1c2738;
+  --success: #6cc08f;
+  --success-soft: #16261c;
+  --warning: #e0b053;
+  --warning-soft: #2a2213;
+  --danger: #ec8a82;
+  --danger-soft: #2c1816;
+  --ring: #7fa8e055;
+  --vec-a: #fb923c;
+  --vec-b: #60a5fa;
+  --plot-grid: #2b2a27;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ring: var(--ring);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+html {
+  background: var(--background);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Lesson prose: a textbook feel, tuned for long reading and math. */
+.lesson-prose {
+  font-family: var(--font-serif);
+  font-size: 1.075rem;
+  line-height: 1.75;
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-links: var(--primary);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-quotes: var(--muted-foreground);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+  --tw-prose-bullets: var(--muted-foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-hr: var(--border);
+}
+.lesson-prose table { font-family: var(--font-sans); font-size: 0.92rem; }
+.lesson-prose :where(code):not(:where(pre *)) {
+  background: var(--muted);
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.3rem;
+  font-weight: 500;
+}
+.lesson-prose :where(code):not(:where(pre *))::before,
+.lesson-prose :where(code):not(:where(pre *))::after { content: none; }
+.lesson-prose pre { background: var(--muted); color: var(--foreground); border: 1px solid var(--border); }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding: 0.25rem 0; }
+.katex { font-size: 1.08em; }
+
+/* highlight.js tokens mapped to theme */
+.hljs-keyword, .hljs-built_in { color: #8b3fb5; }
+.hljs-string { color: #2f7d4f; }
+.hljs-number, .hljs-literal { color: #b45309; }
+.hljs-comment { color: var(--muted-foreground); font-style: italic; }
+.hljs-title, .hljs-title.function_ { color: #1f4f8f; }
+.dark .hljs-keyword, .dark .hljs-built_in { color: #c79bf0; }
+.dark .hljs-string { color: #8fd1a6; }
+.dark .hljs-number, .dark .hljs-literal { color: #f0b46a; }
+.dark .hljs-title, .dark .hljs-title.function_ { color: #8db5ec; }
+
+input[type="range"] { accent-color: var(--primary); }

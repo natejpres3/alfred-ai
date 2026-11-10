@@ -1,0 +1,257 @@
+# AI Academy curriculum specification.
+# Concepts form a DAG (`requires` = hard prerequisites, `soft_requires` = helpful).
+# Block 1 is fully specified; later blocks are outlines (topics) until their specs are authored.
+# Lessons with `seed:` have hand-authored content; all others are generated on demand.
+
+key: ai-academy
+title: AI Academy — From First Principles to Frontier Systems
+version: 1
+
+concepts:
+  # ---- linear algebra
+  - {key: la.scalars_vectors, name: "Scalars, vectors, matrices, tensors", block: b01}
+  - {key: la.dot_product, name: "Dot product", block: b01, requires: [la.scalars_vectors]}
+  - {key: la.norms, name: "Norms and similarity measures", block: b01, requires: [la.dot_product]}
+  - {key: la.matrices, name: "Matrices and matrix operations", block: b01, requires: [la.scalars_vectors]}
+  - {key: la.matmul, name: "Matrix multiplication", block: b01, requires: [la.matrices, la.dot_product]}
+  - {key: la.linear_maps, name: "Linear transformations", block: b01, requires: [la.matmul]}
+  - {key: la.vector_spaces, name: "Vector spaces, basis, rank, linear independence", block: b01, requires: [la.linear_maps]}
+  - {key: la.orthogonality, name: "Orthogonality and projections", block: b01, requires: [la.dot_product, la.vector_spaces]}
+  - {key: la.eigen, name: "Eigenvalues and eigenvectors", block: b01, requires: [la.linear_maps, la.vector_spaces]}
+  - {key: la.svd, name: "Singular value decomposition", block: b01, requires: [la.eigen, la.orthogonality]}
+  # ---- calculus
+  - {key: calc.derivatives, name: "Derivatives", block: b01}
+  - {key: calc.partial_gradients, name: "Partial derivatives and gradients", block: b01, requires: [calc.derivatives, la.scalars_vectors]}
+  - {key: calc.chain_rule, name: "Chain rule", block: b01, requires: [calc.derivatives]}
+  - {key: calc.matrix_calculus, name: "Jacobians, Hessians and matrix calculus", block: b01, requires: [calc.chain_rule, calc.partial_gradients, la.matmul]}
+  - {key: calc.taylor, name: "Taylor approximations", block: b01, requires: [calc.matrix_calculus]}
+  # ---- optimization
+  - {key: opt.gradient_descent, name: "Gradient descent", block: b01, requires: [calc.partial_gradients, la.norms]}
+  - {key: opt.learning_rate, name: "Step size and convergence", block: b01, requires: [opt.gradient_descent]}
+  - {key: opt.gd_implementation, name: "Implementing gradient descent", block: b01, requires: [opt.gradient_descent, la.matmul]}
+  - {key: opt.convexity, name: "Convex optimization", block: b01, requires: [calc.taylor, opt.gradient_descent]}
+  - {key: opt.sgd, name: "Stochastic optimization", block: b01, requires: [opt.gradient_descent, prob.expectation]}
+  # ---- probability, statistics, information
+  - {key: prob.basics, name: "Probability theory", block: b01}
+  - {key: prob.conditional_bayes, name: "Conditional probability and Bayes' theorem", block: b01, requires: [prob.basics]}
+  - {key: prob.random_variables, name: "Random variables and distributions", block: b01, requires: [prob.basics]}
+  - {key: prob.expectation, name: "Expectation, variance and covariance", block: b01, requires: [prob.random_variables]}
+  - {key: stats.mle, name: "Maximum likelihood estimation", block: b01, requires: [prob.expectation, calc.derivatives], soft_requires: [opt.gradient_descent]}
+  - {key: stats.inference, name: "Statistical inference", block: b01, requires: [stats.mle]}
+  - {key: info.entropy, name: "Entropy, cross-entropy and KL divergence", block: b01, requires: [prob.expectation]}
+  # ---- numerics & signals
+  - {key: num.methods, name: "Numerical methods", block: b01, requires: [calc.taylor]}
+  - {key: sig.fourier_convolution, name: "Fourier transforms and convolution", block: b01, requires: [la.orthogonality, calc.derivatives]}
+
+blocks:
+  - key: b01
+    title: Mathematical Foundations
+    description: The linear algebra, calculus, optimization, probability and information theory that every later block is built on.
+    status: authored
+    modules:
+      - key: b01.m01
+        title: Vectors and Matrices
+        description: Vectors as geometry and data; matrices as functions.
+        lessons:
+          - key: b01.m01.l01
+            title: Vectors, dot products, and geometric intuition
+            teaches: [la.scalars_vectors, la.dot_product, la.norms]
+            estimated_minutes: 60
+            seed: lessons/b01_m01_l01.yaml
+            objectives:
+              - {key: b01.m01.l01.o1, concept: la.scalars_vectors, critical: false, statement: "Represent data as vectors and distinguish scalars, vectors, matrices and tensors by shape"}
+              - {key: b01.m01.l01.o2, concept: la.dot_product, critical: true, statement: "Compute the dot product algebraically and interpret it geometrically as |a||b|cos θ"}
+              - {key: b01.m01.l01.o3, concept: la.norms, critical: true, statement: "Compute L1/L2 norms and cosine similarity, and explain when cosine similarity is preferable to Euclidean distance"}
+          - key: b01.m01.l02
+            title: Matrix multiplication and linear transformations
+            teaches: [la.matrices, la.matmul, la.linear_maps]
+            estimated_minutes: 60
+            seed: lessons/b01_m01_l02.yaml
+            objectives:
+              - {key: b01.m01.l02.o1, concept: la.matmul, critical: true, statement: "Compute matrix products, determine when they are defined, and read entry (i,j) as a dot product"}
+              - {key: b01.m01.l02.o2, concept: la.linear_maps, critical: true, statement: "Interpret a matrix as a linear transformation via where it sends the basis vectors"}
+              - {key: b01.m01.l02.o3, concept: la.matmul, critical: false, statement: "Explain composition, non-commutativity, and why a neural-network layer is a matrix multiply"}
+              - {key: b01.m01.l02.o4, concept: la.matrices, critical: false, statement: "Use transpose, identity and shape reasoning correctly"}
+      - key: b01.m02
+        title: Calculus for Learning
+        description: How outputs change when inputs change — the engine of learning.
+        lessons:
+          - key: b01.m02.l03
+            title: Derivatives, gradients, and the chain rule
+            teaches: [calc.derivatives, calc.partial_gradients, calc.chain_rule]
+            estimated_minutes: 60
+            seed: lessons/b01_m02_l03.yaml
+            objectives:
+              - {key: b01.m02.l03.o1, concept: calc.derivatives, critical: true, statement: "Explain the derivative as a local linear approximation and compute derivatives of common functions"}
+              - {key: b01.m02.l03.o2, concept: calc.chain_rule, critical: true, statement: "Apply the chain rule to composite functions and explain why it multiplies local rates of change"}
+              - {key: b01.m02.l03.o3, concept: calc.partial_gradients, critical: true, statement: "Compute partial derivatives and gradients, and explain why the gradient points in the direction of steepest ascent"}
+      - key: b01.m03
+        title: Optimization Foundations
+        description: Learning as minimization — gradient descent from intuition to implementation.
+        project: gd_linreg
+        lessons:
+          - key: b01.m03.l04
+            title: Gradient descent and optimization
+            teaches: [opt.gradient_descent, opt.learning_rate]
+            estimated_minutes: 60
+            seed: lessons/b01_m03_l04.yaml
+            objectives:
+              - {key: b01.m03.l04.o1, concept: opt.gradient_descent, critical: true, statement: "Derive the gradient descent update from the first-order Taylor approximation and perform updates by hand"}
+              - {key: b01.m03.l04.o2, concept: opt.learning_rate, critical: true, statement: "Explain how the learning rate affects convergence, oscillation and divergence"}
+              - {key: b01.m03.l04.o3, concept: opt.gradient_descent, critical: false, statement: "Describe local minima, saddle points and stopping criteria"}
+          - key: b01.m03.l05
+            title: Implementing gradient descent from scratch
+            teaches: [opt.gd_implementation]
+            estimated_minutes: 60
+            seed: lessons/b01_m03_l05.yaml
+            objectives:
+              - {key: b01.m03.l05.o1, concept: opt.gd_implementation, critical: true, statement: "Derive the mean-squared-error gradient for linear regression in vectorized form"}
+              - {key: b01.m03.l05.o2, concept: opt.gd_implementation, critical: true, statement: "Implement batch gradient descent in NumPy and verify it with a numerical gradient check"}
+              - {key: b01.m03.l05.o3, concept: opt.gd_implementation, critical: false, statement: "Diagnose training problems from a loss curve"}
+          - key: b01.m03.checkpoint
+            kind: module_assessment
+            title: "Foundations Checkpoint: vectors to gradient descent"
+            teaches: []
+            covers: [b01.m01.l01, b01.m01.l02, b01.m02.l03, b01.m03.l04, b01.m03.l05]
+            estimated_minutes: 45
+            seed: lessons/b01_m03_checkpoint.yaml
+            objectives: []
+      - key: b01.m04
+        title: Vector Spaces and Geometry
+        lessons:
+          - key: b01.m04.l01
+            title: Span, basis, rank and linear independence
+            teaches: [la.vector_spaces]
+            objectives:
+              - {key: b01.m04.l01.o1, concept: la.vector_spaces, critical: true, statement: "Determine linear independence and span, and find a basis for a column space"}
+              - {key: b01.m04.l01.o2, concept: la.vector_spaces, critical: true, statement: "Explain rank and its relationship to the solutions of Ax = b"}
+          - key: b01.m04.l02
+            title: Orthogonality and projections
+            teaches: [la.orthogonality]
+            objectives:
+              - {key: b01.m04.l02.o1, concept: la.orthogonality, critical: true, statement: "Project a vector onto a subspace and derive the normal equations as an orthogonal projection"}
+              - {key: b01.m04.l02.o2, concept: la.orthogonality, critical: false, statement: "Explain orthonormal bases and Gram–Schmidt"}
+      - key: b01.m05
+        title: Eigendecomposition and SVD
+        lessons:
+          - key: b01.m05.l01
+            title: Eigenvalues and eigenvectors
+            teaches: [la.eigen]
+            objectives:
+              - {key: b01.m05.l01.o1, concept: la.eigen, critical: true, statement: "Compute eigenvalues/eigenvectors of small matrices and interpret them as invariant directions"}
+              - {key: b01.m05.l01.o2, concept: la.eigen, critical: true, statement: "Explain diagonalization and the spectral theorem for symmetric matrices"}
+          - key: b01.m05.l02
+            title: Singular value decomposition
+            teaches: [la.svd]
+            objectives:
+              - {key: b01.m05.l02.o1, concept: la.svd, critical: true, statement: "Explain the SVD geometrically as rotate–scale–rotate and relate it to eigendecomposition"}
+              - {key: b01.m05.l02.o2, concept: la.svd, critical: true, statement: "Use truncated SVD for low-rank approximation and explain its optimality"}
+      - key: b01.m06
+        title: Multivariable Calculus II
+        lessons:
+          - key: b01.m06.l01
+            title: Jacobians, Hessians and matrix calculus
+            teaches: [calc.matrix_calculus]
+            objectives:
+              - {key: b01.m06.l01.o1, concept: calc.matrix_calculus, critical: true, statement: "Compute Jacobians of vector-valued functions and apply the multivariate chain rule as a product of Jacobians"}
+              - {key: b01.m06.l01.o2, concept: calc.matrix_calculus, critical: true, statement: "Derive gradients of common matrix expressions such as x^T A x and ||Ax - b||^2"}
+          - key: b01.m06.l02
+            title: Taylor approximations
+            teaches: [calc.taylor]
+            objectives:
+              - {key: b01.m06.l02.o1, concept: calc.taylor, critical: true, statement: "Write first- and second-order Taylor approximations of multivariate functions and use the Hessian to classify critical points"}
+      - key: b01.m07
+        title: Probability
+        lessons:
+          - key: b01.m07.l01
+            title: Probability, conditioning and Bayes' theorem
+            teaches: [prob.basics, prob.conditional_bayes]
+            objectives:
+              - {key: b01.m07.l01.o1, concept: prob.basics, critical: true, statement: "Apply the axioms of probability, the sum rule and the product rule"}
+              - {key: b01.m07.l01.o2, concept: prob.conditional_bayes, critical: true, statement: "Use Bayes' theorem to update beliefs and avoid base-rate fallacies"}
+          - key: b01.m07.l02
+            title: Random variables, expectation and variance
+            teaches: [prob.random_variables, prob.expectation]
+            objectives:
+              - {key: b01.m07.l02.o1, concept: prob.random_variables, critical: true, statement: "Work with discrete and continuous distributions (Bernoulli, categorical, Gaussian)"}
+              - {key: b01.m07.l02.o2, concept: prob.expectation, critical: true, statement: "Compute expectation, variance and covariance and use linearity of expectation"}
+      - key: b01.m08
+        title: Statistics
+        lessons:
+          - key: b01.m08.l01
+            title: Maximum likelihood estimation
+            teaches: [stats.mle]
+            objectives:
+              - {key: b01.m08.l01.o1, concept: stats.mle, critical: true, statement: "Derive maximum likelihood estimators for Bernoulli and Gaussian models"}
+              - {key: b01.m08.l01.o2, concept: stats.mle, critical: true, statement: "Explain why minimizing MSE is MLE under Gaussian noise"}
+          - key: b01.m08.l02
+            title: Statistical inference
+            teaches: [stats.inference]
+            objectives:
+              - {key: b01.m08.l02.o1, concept: stats.inference, critical: true, statement: "Construct confidence intervals and interpret hypothesis tests correctly"}
+      - key: b01.m09
+        title: Optimization II
+        lessons:
+          - key: b01.m09.l01
+            title: Convex optimization
+            teaches: [opt.convexity]
+            objectives:
+              - {key: b01.m09.l01.o1, concept: opt.convexity, critical: true, statement: "Identify convex functions and sets and explain why convexity guarantees global optima"}
+          - key: b01.m09.l02
+            title: Stochastic optimization
+            teaches: [opt.sgd]
+            objectives:
+              - {key: b01.m09.l02.o1, concept: opt.sgd, critical: true, statement: "Explain minibatch gradients as unbiased estimators and the effect of batch size on noise"}
+              - {key: b01.m09.l02.o2, concept: opt.sgd, critical: false, statement: "Implement minibatch SGD with shuffling"}
+      - key: b01.m10
+        title: Information Theory
+        lessons:
+          - key: b01.m10.l01
+            title: Entropy, cross-entropy and KL divergence
+            teaches: [info.entropy]
+            objectives:
+              - {key: b01.m10.l01.o1, concept: info.entropy, critical: true, statement: "Compute entropy, cross-entropy and KL divergence and interpret them in bits"}
+              - {key: b01.m10.l01.o2, concept: info.entropy, critical: true, statement: "Explain why minimizing cross-entropy loss is maximum likelihood for classifiers"}
+      - key: b01.m11
+        title: Numerical Methods and Signals
+        lessons:
+          - key: b01.m11.l01
+            title: Numerical methods
+            teaches: [num.methods]
+            objectives:
+              - {key: b01.m11.l01.o1, concept: num.methods, critical: true, statement: "Explain finite differences, their truncation and round-off error, and Newton's method"}
+          - key: b01.m11.l02
+            title: Fourier transforms and convolution
+            teaches: [sig.fourier_convolution]
+            objectives:
+              - {key: b01.m11.l02.o1, concept: sig.fourier_convolution, critical: true, statement: "Compute discrete convolutions and explain the convolution theorem"}
+          - key: b01.final
+            kind: block_assessment
+            title: "Block 1 Exam: Mathematical Foundations"
+            teaches: []
+            covers: all
+            estimated_minutes: 90
+            objectives: []
+
+  - {key: b02, title: Computer Science and Numerical Computing, status: outline, topics: [Algorithms and data structures, Time and space complexity, Computer architecture, CPU execution, Memory hierarchy, Caching, Floating-point arithmetic, Numerical precision and stability, Vectorization and broadcasting, Parallel computing, Python internals, NumPy, PyTorch tensors, C++ fundamentals, Linux and shell tools, Concurrency and distributed systems fundamentals, Networking and API fundamentals, Profiling and benchmarking]}
+  - {key: b03, title: Classical Artificial Intelligence, status: outline, topics: [Intelligent agents, State-space search, "BFS, DFS, uniform-cost search", A* and heuristic search, Minimax and alpha-beta pruning, Constraint satisfaction problems, Logic and knowledge representation, Automated planning, Bayesian networks, Probabilistic graphical models, Hidden Markov models, Kalman filtering, Partially observable environments, Causal reasoning fundamentals]}
+  - {key: b04, title: Statistical Machine Learning, status: outline, topics: [Supervised learning, Unsupervised learning, Self-supervised learning, Regression, Classification, Decision trees and random forests, Gradient boosting, Support vector machines, Clustering, Dimensionality reduction, PCA, Bias-variance tradeoff, Regularization, Generalization, Statistical learning theory, Cross-validation, Feature engineering, Model evaluation, Calibration, Data leakage and distribution shift]}
+  - {key: b05, title: Neural Networks From First Principles, status: outline, topics: [Perceptrons, Multilayer perceptrons, Activation functions, Forward propagation, Loss functions, Computational graphs, Backpropagation, Automatic differentiation, Gradient descent, "SGD, momentum, Adam, and AdamW", Initialization, Vanishing and exploding gradients, Normalization, Regularization and dropout, Learning-rate scheduling, Building a neural network library from scratch, Implementing neural networks in PyTorch]}
+  - {key: b06, title: Deep Learning Architectures, status: outline, topics: [Convolutional neural networks, Convolution and pooling, Residual networks, Recurrent neural networks, LSTMs and GRUs, Sequence-to-sequence models, Encoder-decoder architectures, Autoencoders, Representation learning, Contrastive learning, Embedding models, Self-supervised learning]}
+  - {key: b07, title: GPU Computing and Hardware, status: outline, topics: [CPU versus GPU architecture, Streaming multiprocessors, GPU cores and tensor cores, SIMD and SIMT, Warps and thread blocks, CUDA programming, GPU memory hierarchy, "Registers, shared memory, caches, HBM", Memory bandwidth, Arithmetic intensity, Roofline models, Kernel optimization, Matrix multiplication tiling, Triton programming, GPU profiling, Kernel fusion, Mixed-precision computation, Multi-GPU systems, NVLink and PCIe, GPU networking, TPU fundamentals, Distributed accelerator systems]}
+  - {key: b08, title: Natural Language Processing and Transformers, status: outline, topics: [Language modeling fundamentals, N-gram models, Tokenization, Byte-pair encoding, Word embeddings, Word2Vec, Contextual embeddings, Sequence modeling, Attention mechanisms, "Queries, keys, and values", Scaled dot-product attention, Self-attention, Cross-attention, Multi-head attention, Causal masking, Positional encodings, Rotary positional embeddings, Transformer architecture, Encoder-only transformers, Decoder-only transformers, Encoder-decoder transformers, BERT, GPT, T5, LLaMA-style models, Mixture-of-experts architectures, Long-context modeling, Building GPT from scratch]}
+  - {key: b09, title: LLM Pretraining and Scaling, status: outline, topics: [Pretraining objectives, Autoregressive language modeling, Cross-entropy loss, Training dataset construction, Web-scale data processing, Data filtering and deduplication, Data mixtures, Dataset contamination, Tokenization pipelines, Training loops, Batch sizes and sequence lengths, Gradient accumulation, Checkpointing, Mixed-precision training, Distributed data parallelism, Tensor parallelism, Pipeline parallelism, FSDP and ZeRO, Scaling laws, Compute-optimal training, GPU utilization, Training costs and economics, Training a small LLM from scratch]}
+  - {key: b10, title: LLM Post-Training and Alignment, status: outline, topics: [Instruction tuning, Supervised fine-tuning, Chat templates, LoRA and QLoRA, Parameter-efficient fine-tuning, Reward modeling, Human preference data, RLHF, PPO, Direct Preference Optimization, Reasoning models, Chain-of-thought reasoning, Test-time compute, Verifiable rewards, Reinforcement learning for reasoning, Synthetic data, Knowledge distillation, Continued pretraining, Domain adaptation, Model merging, Alignment limitations]}
+  - {key: b11, title: LLM Inference and Optimization, status: outline, topics: [Autoregressive decoding, Logits and sampling, "Temperature, top-k, and top-p", Prefill versus decode, KV caching, Memory requirements, Quantization, "FP16, BF16, FP8, INT8, INT4", FlashAttention, PagedAttention, Continuous batching, Prefix caching, Speculative decoding, Chunked prefill, Tensor parallel inference, Inference scheduling, Throughput and latency, Time to first token, Tokens per second, vLLM, SGLang, llama.cpp, TensorRT-LLM, Building an inference server, Inference cost optimization]}
+  - {key: b12, title: "RAG, Tools, and AI Agents", status: outline, topics: [Embedding models, Vector databases, Dense and sparse retrieval, BM25, Hybrid search, Approximate nearest-neighbor search, Reranking, Chunking strategies, RAG architecture, Retrieval evaluation, Context construction, Function calling, Structured outputs, Tool use, ReAct agents, Planning and execution, Agent memory, Agent orchestration, Multi-agent systems, Model Context Protocol, Human-in-the-loop systems, Agent reliability, Prompt injection, Agent evaluation, Cost and latency optimization]}
+  - {key: b13, title: Generative and Multimodal Models, status: outline, topics: [Generative modeling fundamentals, Latent-variable models, Variational autoencoders, GANs, Diffusion models, Score matching, Flow matching, Computer vision, Vision transformers, Object detection, Image segmentation, CLIP, Vision-language models, Multimodal embeddings, Speech recognition, Speech synthesis, Audio-language models, Video generation, Graph neural networks, Geometric deep learning]}
+  - {key: b14, title: Reinforcement Learning, status: outline, topics: [Markov decision processes, Rewards and policies, Bellman equations, Value iteration, Policy iteration, Monte Carlo methods, Temporal-difference learning, Q-learning, Deep Q-networks, Policy gradients, Actor-critic methods, PPO, Model-based reinforcement learning, Offline reinforcement learning, Exploration versus exploitation, World models, Robotics and control, Multi-agent reinforcement learning]}
+  - {key: b15, title: ML Systems and MLOps, status: outline, topics: [Data engineering, ETL and ELT, Feature stores, Dataset versioning, Experiment tracking, Model registries, Training orchestration, ML pipelines, Docker, Kubernetes, Cloud infrastructure, GPU infrastructure, REST and gRPC APIs, Model deployment, CI/CD, Batch and online inference, Autoscaling, Load balancing, Caching, Monitoring, Data drift, Concept drift, Observability, Model rollbacks, Reliability engineering, ML system design, Production cost optimization]}
+  - {key: b16, title: "Evaluation, Safety, and Interpretability", status: outline, topics: [Benchmark design, Offline and online evaluation, Human evaluation, LLM-as-a-judge, Statistical significance, Calibration, Robustness, Distribution shift, Hallucination evaluation, Agent trajectory evaluation, Retrieval evaluation, Prompt injection, Adversarial attacks, Data poisoning, Privacy and memorization, Model extraction, Alignment and safety, Mechanistic interpretability, Feature attribution, Sparse autoencoders, Activation patching, Transformer circuits, Representation analysis]}
+  - {key: b17, title: AI Research and Frontier Topics, status: outline, topics: [Reading research papers, Understanding mathematical derivations, Reproducing experiments, Ablation studies, Research methodology, Scientific reproducibility, Scaling research, Efficient architectures, Transformer alternatives, State-space models, Long-context reasoning, Memory-augmented models, Reasoning reinforcement learning, Self-improving systems, World models, Embodied AI, AI for science, Causal representation learning, Emerging architectures and training methods]}
+  - {key: b18, title: Final Capstone, status: outline, topics: [Data collection, Data cleaning, Tokenization, Transformer implementation, Model pretraining, Fine-tuning, Evaluation, Inference optimization, Model serving, Retrieval, Tool calling, Monitoring, Deployment, Performance benchmarking, Technical documentation]}
+
+projects:
+  - key: gd_linreg
+    module: b01.m03
+    seed: projects/gd_linreg.yaml

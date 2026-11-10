@@ -1,0 +1,21 @@
+# Local development services. The API, worker and web app run on the host (see Makefile).
+services:
+  postgres:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: academy
+      POSTGRES_PASSWORD: academy
+      POSTGRES_DB: academy
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U academy"]
+      interval: 3s
+      retries: 20
+
+  mailpit:  # catches every email the app sends: http://localhost:8025
+    image: axllent/mailpit:v1.20
+    ports: ["1025:1025", "8025:8025"]
+
+volumes:
+  pgdata:

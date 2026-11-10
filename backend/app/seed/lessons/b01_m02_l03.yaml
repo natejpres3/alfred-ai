@@ -1,0 +1,483 @@
+lesson_key: b01.m02.l03
+title: Derivatives, gradients, and the chain rule
+subtitle: How a change in one number propagates to another — the mathematics of learning
+summary: >-
+  A derivative is the best local linear approximation of a function. The chain rule says the rate of change of a
+  composition is the product of the local rates. A gradient collects all partial derivatives into a vector that
+  points uphill fastest. These three ideas are all of backpropagation.
+why_it_matters: >-
+  Training a neural network means asking "if I nudge this weight, how does the loss change?" for millions of
+  weights. Backpropagation answers that by applying the chain rule through a computational graph; gradient
+  descent then steps against the gradient. Without these ideas, deep learning is a black box.
+explanation_strategy: local-linear-approximation with computational graphs
+estimated_minutes: 60
+prerequisites: [la.scalars_vectors, la.dot_product]
+objectives:
+  - {id: b01.m02.l03.o1, concept_key: calc.derivatives, critical: true, bloom: apply, statement: "Explain the derivative as a local linear approximation and compute derivatives of common functions"}
+  - {id: b01.m02.l03.o2, concept_key: calc.chain_rule, critical: true, bloom: apply, statement: "Apply the chain rule to composite functions and explain why it multiplies local rates of change"}
+  - {id: b01.m02.l03.o3, concept_key: calc.partial_gradients, critical: true, bloom: understand, statement: "Compute partial derivatives and gradients, and explain why the gradient points in the direction of steepest ascent"}
+connections:
+  - {concept_key: la.dot_product, direction: builds_on, note: "The directional derivative is a dot product: ∇f · u."}
+  - {concept_key: opt.gradient_descent, direction: leads_to, note: "Next lesson: step in the direction −∇f."}
+  - {concept_key: calc.matrix_calculus, direction: leads_to, note: "Jacobians generalize the chain rule to vector-valued functions."}
+resources:
+  - id: r-3b1b-chain
+    kind: video
+    title: "Visualizing the chain rule and product rule | Chapter 4, Essence of calculus"
+    url: https://www.youtube.com/watch?v=YG15m2VwSjA
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~16 min)"
+    why: Why rates of change multiply through compositions.
+    required: false
+  - id: r-3b1b-deriv
+    kind: video
+    title: "The paradox of the derivative | Chapter 2, Essence of calculus"
+    url: https://www.youtube.com/watch?v=9vKqVkMQHKk
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~17 min)"
+    why: The derivative as the limit of a rate of change.
+    required: false
+  - id: r-3b1b-backprop
+    kind: video
+    title: "Backpropagation calculus | Deep Learning Chapter 4"
+    url: https://www.youtube.com/watch?v=tIeHLnjs5U8
+    authors: [Grant Sanderson]
+    publisher: 3Blue1Brown
+    details: "Full video (~10 min) — preview of where this is going"
+    why: The chain rule applied to a tiny network.
+    required: false
+  - id: r-mml-5
+    kind: book
+    title: Mathematics for Machine Learning
+    url: https://mml-book.github.io/
+    authors: [Marc Peter Deisenroth, A. Aldo Faisal, Cheng Soon Ong]
+    publisher: Cambridge University Press
+    details: "Ch. 5.1–5.2 (differentiation of univariate functions, partial derivatives and gradients)"
+    why: Careful treatment with ML-oriented notation.
+    required: false
+sections:
+  - id: s1
+    kind: retrieval
+    title: Warm-up
+    estimated_minutes: 4
+    blocks:
+      - {type: question, question_id: w1}
+      - {type: question, question_id: w2}
+  - id: s2
+    kind: concept
+    title: "The question every learning algorithm asks"
+    estimated_minutes: 9
+    blocks:
+      - type: markdown
+        text: |
+          A model has parameters (weights) and produces a **loss** — a single number measuring how wrong it is. To
+          improve, we need to know, for each parameter: *if I nudge this up a tiny bit, does the loss go up or
+          down, and how fast?* That "how fast" is a derivative.
+
+          Three ideas answer the question completely:
+
+          1. **Derivative** — the rate of change of a one-input function.
+          2. **Chain rule** — how rates of change combine when functions are composed (a network is a long
+             composition of layers).
+          3. **Gradient** — the vector of rates of change with respect to *every* input at once.
+      - type: callout
+        variant: history
+        title: From Newton and Leibniz to backpropagation
+        text: |
+          Newton and Leibniz independently developed calculus in the late 17th century; Leibniz's notation
+          $\frac{dy}{dx}$ makes the chain rule look like fraction cancellation, $\frac{dy}{dx}=\frac{dy}{du}\frac{du}{dx}$.
+          Applying the chain rule efficiently, backwards through a graph of operations, is **reverse-mode
+          automatic differentiation** (Linnainmaa, 1970). Rumelhart, Hinton and Williams (1986) popularized it
+          for neural networks as *backpropagation*.
+  - id: s3
+    kind: math
+    title: Derivatives, the chain rule, and gradients
+    estimated_minutes: 15
+    blocks:
+      - type: markdown
+        text: |
+          ### Derivative = best local linear approximation
+      - type: equation
+        latex: "f'(a) = \\lim_{h\\to 0}\\frac{f(a+h)-f(a)}{h} \\qquad\\Longleftrightarrow\\qquad f(a+h) \\approx f(a) + f'(a)\\,h \\text{ for small } h"
+      - type: markdown
+        text: |
+          Zoom in far enough on a smooth curve and it looks like a straight line; $f'(a)$ is that line's slope. The
+          right-hand form is the one we use constantly: a small input change $h$ produces an output change of
+          about $f'(a)\,h$.
+
+          | $f(x)$ | $f'(x)$ |
+          |---|---|
+          | $x^n$ | $n x^{n-1}$ |
+          | $e^x$ | $e^x$ |
+          | $\ln x$ | $1/x$ |
+          | $\sin x$ | $\cos x$ |
+          | $\sigma(x)=\frac{1}{1+e^{-x}}$ | $\sigma(x)\,(1-\sigma(x))$ |
+
+          Example: $f(x)=x^3-2x$ gives $f'(x)=3x^2-2$, so $f'(2)=10$: near $x=2$ the output moves 10× as much as the input.
+
+          ### Chain rule = local rates multiply
+      - type: equation
+        latex: "\\frac{d}{dx} f(g(x)) = f'(g(x))\\cdot g'(x) \\qquad\\text{or}\\qquad \\frac{dy}{dx}=\\frac{dy}{du}\\cdot\\frac{du}{dx}"
+      - type: markdown
+        text: |
+          **Why multiply?** Using the local linear approximation twice: a nudge $h$ in $x$ changes $u=g(x)$ by about
+          $g'(x)h$; that change in $u$ changes $y=f(u)$ by about $f'(u)\cdot g'(x)h$. Rates compose like gear ratios:
+          if $u$ turns 3× as fast as $x$ and $y$ turns 2× as fast as $u$, then $y$ turns 6× as fast as $x$.
+
+          **Worked example.** $y=(3x^2+1)^4$. Let $u=3x^2+1$, $y=u^4$. Then $\frac{dy}{du}=4u^3$, $\frac{du}{dx}=6x$,
+          so $\frac{dy}{dx}=4(3x^2+1)^3\cdot 6x$. At $x=1$: $4\cdot 4^3\cdot 6=1536$.
+
+          **As a computational graph.** Write the computation as a chain of simple nodes,
+          $x \xrightarrow{g} u \xrightarrow{f} y$. Each node knows its own *local* derivative. The derivative of the
+          output with respect to any input is the product of local derivatives along the path. Backpropagation is
+          exactly this, done right-to-left so that shared work is reused.
+
+          ### Partial derivatives and the gradient
+
+          For $f(x,y)$, the partial derivative $\frac{\partial f}{\partial x}$ treats $y$ as a constant. The
+          **gradient** stacks them:
+      - type: equation
+        latex: "\\nabla f(\\mathbf{x}) = \\left(\\frac{\\partial f}{\\partial x_1}, \\dots, \\frac{\\partial f}{\\partial x_n}\\right) \\in \\mathbb{R}^n"
+      - type: markdown
+        text: |
+          Example: $f(x,y)=x^2y+\sin y$ gives $\nabla f = (2xy,\; x^2+\cos y)$. At $(1,0)$: $\nabla f=(0,2)$.
+
+          The multivariable local linear approximation is $f(\mathbf{x}+\mathbf{h})\approx f(\mathbf{x})+\nabla f(\mathbf{x})\cdot\mathbf{h}$
+          — a **dot product** (Lesson 1). That gives the most important fact in optimization:
+
+          **The gradient points in the direction of steepest ascent.** The rate of change in the unit direction
+          $\mathbf{u}$ (the *directional derivative*) is
+      - type: equation
+        latex: "D_{\\mathbf{u}}f = \\nabla f\\cdot\\mathbf{u} = \\|\\nabla f\\|\\cos\\theta"
+      - type: markdown
+        text: |
+          which is largest when $\theta=0$, i.e. when $\mathbf{u}$ points along $\nabla f$, where the rate is
+          $\|\nabla f\|$. It is most negative along $-\nabla f$ (steepest *descent*), and zero for directions
+          perpendicular to the gradient — which is why gradients are perpendicular to contour lines.
+
+          **Multivariable chain rule.** If $z=f(x(t),y(t))$, then $\frac{dz}{dt}=\frac{\partial f}{\partial x}\frac{dx}{dt}+\frac{\partial f}{\partial y}\frac{dy}{dt}$:
+          sum over every path from $t$ to $z$ of the product of local derivatives along that path.
+  - id: s4
+    kind: demo
+    title: Tangent lines up close
+    estimated_minutes: 7
+    blocks:
+      - type: interactive
+        widget: derivative_tangent
+        params: [{name: x0, value: 1}, {name: h, value: 0.5}]
+        caption: "f(x) = x³ − 2x with the secant through x₀ and x₀ + h, and the tangent at x₀."
+        instructions: |
+          1. Shrink h towards 0 and watch the secant slope converge to f'(x₀).
+          2. Move x₀ to where the tangent is flat. What is f'(x₀) there? (Solve 3x² − 2 = 0 to check.)
+          3. For h = 0.5, compare the true f(x₀ + h) with the tangent-line prediction. When is the error small?
+      - type: resource
+        resource_id: r-3b1b-chain
+        note: Optional — the chain rule visualized.
+  - id: s5
+    kind: recall
+    title: Active recall
+    estimated_minutes: 14
+    blocks:
+      - {type: question, question_id: q1}
+      - {type: question, question_id: q2}
+      - {type: question, question_id: q3}
+      - {type: question, question_id: q4}
+      - {type: question, question_id: q5}
+      - {type: question, question_id: q6}
+      - {type: question, question_id: q7}
+  - id: s6
+    kind: coding
+    title: Numerical derivatives
+    estimated_minutes: 8
+    blocks:
+      - type: markdown
+        text: |
+          Numerical derivatives are how you *check* analytic gradients (you'll use this in Lesson 5 and in every
+          from-scratch network). Use the **central difference** $\frac{f(x+h)-f(x-h)}{2h}$, whose error shrinks like
+          $h^2$, rather than the forward difference, whose error shrinks only like $h$.
+      - {type: question, question_id: c1}
+  - id: s7
+    kind: summary
+    title: Summary
+    estimated_minutes: 3
+    blocks:
+      - type: markdown
+        text: |
+          - $f(a+h)\approx f(a)+f'(a)h$: the derivative is the slope of the best local line.
+          - Chain rule: local rates multiply along a path; sum over paths in several variables.
+          - $\nabla f$ collects partial derivatives; $D_\mathbf{u}f=\nabla f\cdot\mathbf{u}$, so $\nabla f$ is the
+            steepest-ascent direction and $-\nabla f$ the steepest-descent direction.
+
+          **Next:** walk downhill on a loss surface — gradient descent.
+questions:
+  - id: w1
+    type: numeric
+    category: recall
+    required: false
+    prompt: "Compute $(1,2)\\cdot(3,-1)$."
+    objective_ids: [b01.m02.l03.o3]
+    grading:
+      numeric: {value: 1, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "3 − 2 = 1."
+  - id: w2
+    type: mcq
+    category: recall
+    required: false
+    prompt: "For a fixed vector $\\mathbf{g}$ and unit vectors $\\mathbf{u}$, $\\mathbf{g}\\cdot\\mathbf{u}$ is largest when…"
+    objective_ids: [b01.m02.l03.o3]
+    options:
+      - {id: a, text: "u points in the same direction as g"}
+      - {id: b, text: "u is perpendicular to g"}
+      - {id: c, text: "u points opposite to g"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "g·u = |g|cos θ, maximized at θ = 0. Keep this in mind for the gradient."
+  - id: q1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Let $f(x)=x^3-2x$. Compute $f'(2)$."
+    objective_ids: [b01.m02.l03.o1]
+    grading:
+      numeric: {value: 10, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "f'(x) = 3x² − 2, so f'(2) = 12 − 2 = 10."
+  - id: q2
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Explain what $f'(a)$ tells you, using the idea of a local linear approximation. Then use $f'(2)$ from the
+      previous question to estimate $f(2.01)$ for $f(x)=x^3-2x$ **without** cubing 2.01. Show the estimate.
+    objective_ids: [b01.m02.l03.o1]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "Derivative is the slope of the tangent / best linear approximation: f(a+h) ≈ f(a) + f'(a)·h for small h"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Uses f(2) = 4 and f'(2) = 10 with h = 0.01"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Arrives at approximately 4.1"}
+        reference_answer: "f'(a) is the slope of the best linear approximation near a: f(a+h) ≈ f(a) + f'(a)h. With f(2) = 4, f'(2) = 10, h = 0.01: f(2.01) ≈ 4 + 0.1 = 4.1 (true value 4.100601)."
+        common_misconceptions: ["The derivative is the value of the function", "The approximation is exact"]
+      explanation: "f(2.01) ≈ f(2) + f'(2)·0.01 = 4.1; the true value is 4.100601."
+  - id: q3
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute $\\frac{d}{dx}(3x^2+1)^4$ at $x=1$."
+    objective_ids: [b01.m02.l03.o2]
+    hints: ["Let u = 3x² + 1.", "dy/du · du/dx, evaluated at x = 1 (where u = 4)."]
+    grading:
+      numeric: {value: 1536, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "4u³ · 6x with u = 4, x = 1: 4·64·6 = 1536."
+  - id: q4
+    type: derivation
+    category: math
+    critical: true
+    points: 5
+    prompt: |
+      A one-weight "network" computes $L=(\sigma(wx)-y)^2$, where $\sigma$ is the sigmoid and $x,y$ are fixed data.
+      Derive $\dfrac{\partial L}{\partial w}$ with the chain rule. Name each intermediate quantity (e.g.
+      $z=wx$, $a=\sigma(z)$) and its local derivative, then combine them. Briefly explain why the chain rule
+      multiplies the local derivatives.
+    objective_ids: [b01.m02.l03.o2]
+    hints: ["Three links: w → z → a → L.", "σ'(z) = σ(z)(1 − σ(z))."]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "Decomposes into intermediates (z = wx, a = σ(z), L = (a − y)²) or equivalent"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "dL/da = 2(a − y)"}
+          - {id: c3, points: 1, required_for_mastery: true, description: "da/dz = σ(z)(1 − σ(z))"}
+          - {id: c4, points: 1, required_for_mastery: true, description: "dz/dw = x, and the final product ∂L/∂w = 2(σ(wx) − y)·σ(wx)(1 − σ(wx))·x"}
+          - {id: c5, points: 1, required_for_mastery: false, description: "Justifies multiplication: a small change propagates through each link, scaled by each local rate (linear approximations compose)"}
+        reference_answer: |
+          z = wx, a = σ(z), L = (a − y)². dL/da = 2(a − y); da/dz = σ(z)(1 − σ(z)); dz/dw = x. So
+          ∂L/∂w = 2(σ(wx) − y)·σ(wx)(1 − σ(wx))·x. A nudge δw changes z by xδw, which changes a by
+          σ'(z)xδw, which changes L by 2(a − y)σ'(z)xδw — each link scales the change by its local rate.
+        common_misconceptions: ["Adding local derivatives instead of multiplying", "Forgetting the inner derivative x", "σ'(z) = σ(z)"]
+      explanation: "∂L/∂w = 2(a − y) · σ(z)(1 − σ(z)) · x — exactly what backpropagation computes for one weight."
+  - id: q5
+    type: numeric
+    category: math
+    critical: true
+    prompt: "For $f(x,y)=x^2y+\\sin y$, compute $\\dfrac{\\partial f}{\\partial y}$ at $(x,y)=(1,0)$."
+    objective_ids: [b01.m02.l03.o3]
+    grading:
+      numeric: {value: 2, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "∂f/∂y = x² + cos y = 1 + 1 = 2."
+  - id: q6
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 4
+    prompt: |
+      Explain why the gradient $\nabla f$ points in the direction of steepest ascent. Your explanation should use
+      the directional derivative and connect to what you know about dot products.
+    objective_ids: [b01.m02.l03.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 2, required_for_mastery: true, description: "Rate of change in unit direction u is the directional derivative ∇f · u (from the linear approximation f(x+h) ≈ f(x) + ∇f·h)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Writes ∇f · u = |∇f| cos θ, maximized when θ = 0 i.e. u parallel to ∇f"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Notes the steepest descent is −∇f and/or the maximal rate is |∇f|"}
+        reference_answer: "Moving a small step in unit direction u changes f at rate D_u f = ∇f·u = |∇f|cos θ. This is maximal when θ = 0, i.e. u = ∇f/|∇f|, with rate |∇f|. So the gradient is the steepest-ascent direction and −∇f the steepest descent."
+        common_misconceptions: ["The gradient points toward the minimum", "The gradient is a scalar"]
+      explanation: "D_u f = |∇f| cos θ is maximal at θ = 0."
+  - id: q7
+    type: mcq
+    category: conceptual
+    prompt: "For $f:\\mathbb{R}^{1000}\\to\\mathbb{R}$ (e.g. a loss with 1000 parameters), $\\nabla f(\\mathbf{x})$ is:"
+    objective_ids: [b01.m02.l03.o3]
+    options:
+      - {id: a, text: "a vector in R^1000"}
+      - {id: b, text: "a single number"}
+      - {id: c, text: "a 1000×1000 matrix"}
+      - {id: d, text: "the minimum of f"}
+    grading:
+      correct_option_ids: [a]
+      explanation: "One partial derivative per input. (The 1000×1000 matrix of second derivatives is the Hessian.)"
+  - id: c1
+    type: code
+    category: coding
+    critical: true
+    points: 5
+    prompt: |
+      Implement `numerical_derivative(f, x, h=1e-5)` using the **central difference**, and
+      `numerical_gradient(f, x, h=1e-5)` for a function of a list of floats. `numerical_gradient` must not
+      modify the input list.
+    objective_ids: [b01.m02.l03.o1, b01.m02.l03.o3]
+    hints: ["Perturb one coordinate at a time on a copy of x."]
+    code:
+      starter_code: |
+        from typing import Callable
+
+
+        def numerical_derivative(f: Callable[[float], float], x: float, h: float = 1e-5) -> float:
+            """Central-difference estimate of f'(x)."""
+            raise NotImplementedError
+
+
+        def numerical_gradient(f: Callable[[list[float]], float], x: list[float], h: float = 1e-5) -> list[float]:
+            """Central-difference estimate of the gradient of f at x (a list). Must not mutate x."""
+            raise NotImplementedError
+      required_functions: [numerical_derivative, numerical_gradient]
+      allowed_imports: [math, typing]
+      time_limit_seconds: 5
+      public_tests:
+        - name: test_square
+          code: |
+            def test_square():
+                assert abs(numerical_derivative(lambda x: x ** 2, 3.0) - 6.0) < 1e-6
+        - name: test_gradient_sum_squares
+          code: |
+            def test_gradient_sum_squares():
+                g = numerical_gradient(lambda v: v[0] ** 2 + v[1] ** 2, [1.0, 2.0])
+                assert abs(g[0] - 2.0) < 1e-6 and abs(g[1] - 4.0) < 1e-6
+    grading:
+      code:
+        hidden_tests:
+          - name: test_is_central_difference
+            code: |
+              def test_is_central_difference():
+                  # central difference error is h^2 = 1e-6 here; forward difference would be ~3e-3
+                  d = numerical_derivative(lambda x: x ** 3, 1.0, h=1e-3)
+                  assert abs(d - 3.0) < 1e-5
+          - name: test_sin
+            code: |
+              def test_sin():
+                  import math
+                  assert abs(numerical_derivative(math.sin, 0.0) - 1.0) < 1e-8
+          - name: test_no_mutation
+            code: |
+              def test_no_mutation():
+                  x = [1.0, -2.0, 3.0]
+                  numerical_gradient(lambda v: sum(t * t for t in v), x)
+                  assert x == [1.0, -2.0, 3.0]
+          - name: test_mixed_partials
+            code: |
+              def test_mixed_partials():
+                  import math
+                  f = lambda v: v[0] ** 2 * v[1] + math.sin(v[1])
+                  g = numerical_gradient(f, [1.0, 0.0])
+                  assert abs(g[0] - 0.0) < 1e-6 and abs(g[1] - 2.0) < 1e-6
+          - name: test_length
+            code: |
+              def test_length():
+                  g = numerical_gradient(lambda v: sum(v), [0.0] * 5)
+                  assert len(g) == 5 and all(abs(t - 1.0) < 1e-6 for t in g)
+        forbidden_imports: [numpy, scipy, torch, sympy, autograd, jax]
+        reference_solution: |
+          def numerical_derivative(f, x, h=1e-5):
+              return (f(x + h) - f(x - h)) / (2 * h)
+
+          def numerical_gradient(f, x, h=1e-5):
+              grad = []
+              for i in range(len(x)):
+                  xp = list(x); xp[i] += h
+                  xm = list(x); xm[i] -= h
+                  grad.append((f(xp) - f(xm)) / (2 * h))
+              return grad
+        review_focus: ["Uses the central (not forward) difference", "Copies x before perturbing"]
+      explanation: "(f(x+h) − f(x−h)) / 2h, one coordinate at a time on copies of x."
+homework:
+  - "Derive σ'(x) = σ(x)(1 − σ(x)) from σ(x) = 1/(1 + e^{−x})."
+  - "Using the multivariable chain rule, find dz/dt for z = x²y with x = cos t, y = sin t."
+completion:
+  required_section_ids: [s1, s2, s3, s4, s5, s6, s7]
+  required_question_ids: [q1, q2, q3, q4, q5, q6, q7, c1]
+  pass_threshold: 0.85
+variant_bank:
+  - id: v1
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute the derivative of $e^{2x}$ at $x=0$."
+    objective_ids: [b01.m02.l03.o1]
+    grading:
+      numeric: {value: 2, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "2e^{2x} at 0 is 2 (chain rule with inner derivative 2)."
+  - id: v2
+    type: numeric
+    category: math
+    critical: true
+    prompt: "Compute $\\frac{d}{dx}\\ln(1+x^2)$ at $x=1$."
+    objective_ids: [b01.m02.l03.o2]
+    grading:
+      numeric: {value: 1, abs_tol: 0.000001, rel_tol: 0}
+      explanation: "(1/(1+x²))·2x = 2/2 = 1."
+  - id: v3
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      $u$ changes 3 times as fast as $x$, and $y$ changes $-2$ times as fast as $u$ (near the current point).
+      How fast does $y$ change relative to $x$, and why is the answer a product rather than a sum?
+    objective_ids: [b01.m02.l03.o2]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "dy/dx = (dy/du)(du/dx) = −6"}
+          - {id: c2, points: 2, required_for_mastery: true, description: "Explains that a small change in x is scaled by 3 to become a change in u, which is then scaled by −2 to become a change in y: scalings compose by multiplication"}
+        reference_answer: "dy/dx = −2 · 3 = −6. A nudge δx becomes 3δx in u, which becomes −2·3δx in y; successive scalings multiply."
+        common_misconceptions: ["Adding rates (getting 1)"]
+      explanation: "Rates compose multiplicatively."
+  - id: v4
+    type: short_answer
+    category: conceptual
+    critical: true
+    points: 3
+    prompt: |
+      For $f(x,y)=3x+4y$, give $\nabla f$, the unit direction of steepest increase, and the rate of increase in
+      that direction. Explain how you know.
+    objective_ids: [b01.m02.l03.o3]
+    grading:
+      rubric:
+        criteria:
+          - {id: c1, points: 1, required_for_mastery: true, description: "∇f = (3, 4)"}
+          - {id: c2, points: 1, required_for_mastery: true, description: "Steepest direction (3,4)/5 = (0.6, 0.8), because the directional derivative ∇f·u is maximized when u is parallel to ∇f"}
+          - {id: c3, points: 1, required_for_mastery: false, description: "Rate is |∇f| = 5"}
+        reference_answer: "∇f = (3,4). D_u f = ∇f·u = 5cos θ, maximal along u = (0.6, 0.8) with rate 5."
+        common_misconceptions: []
+      explanation: "Gradient direction, gradient magnitude."
